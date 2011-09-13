@@ -165,7 +165,6 @@ function onStart(e) {
 	diff_board_coords = {	x : Math.floor(coords.x / CELL_SIZE), 
 							y : Math.floor(coords.y / CELL_SIZE)};
 
-	//console.log(diff_board_coords);
 	// проверка на попадание в шашку
 	if (isHitChecker()) {
 		
@@ -184,7 +183,6 @@ function onStart(e) {
 		}
 		
 		touching = true;
-		//log('Start ' + diff_board_coords.x + ' ' + diff_board_coords.y);
 	}
 	
 	return false;
@@ -197,8 +195,6 @@ function onStop(e) {
 	if (touching) {
 		touching = false;
 
-		//log('Stop ' + (Math.ceil(last_coords.x / CELL_SIZE) - 1) + ' ' + (Math.ceil(last_coords.y / CELL_SIZE) - 1));
-				
 		if (wSelected >=0 ) {
 			
 			new_x = Math.ceil(last_coords.x / CELL_SIZE) - 1;
