@@ -2,6 +2,7 @@
 <html>
 	<head>
 		<meta name="viewport" content="width=device-width, user-scalable=no">
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 		
 		<title>HTML5 iPad Checkers</title>
 		
@@ -12,11 +13,15 @@ var context = null;
 var cb_lastPoints = [];
 var CELL_SIZE = 80;
 var BOARD_SIZE = CELL_SIZE * 8;
+var COLOR_BLACK = '#ededed';
+var COLOR_WHITE = '#fff';
 var SELECTION_COLOR = '#c0c';
 var touching = false;
 var images = {};
 var diff_coords = {};
 var last_coords = {};
+
+var whiteTurn = true;
 
 var pieces;
 
@@ -76,7 +81,7 @@ function init() {
 		new Cell(1, 0, 'black'), new Cell(1, 2, 'black'),
 		new Cell(1, 4, 'black'), new Cell(1, 6, 'black'),
 		new Cell(2, 1, 'black'), new Cell(2, 3, 'black'),
-		new Cell(2, 5, 'black'), new Cell(2, 7, 'black')];	
+		new Cell(2, 5, 'black'), new Cell(2, 7, 'black')];
 	
 	if (canvas.getContext) {
 		
@@ -95,10 +100,17 @@ function init() {
 }
 
 function log(smth) {
-	$('#coords .text').html($('#coords .text').html() + ' | ' + smth);
+	$('#info .text').html($('#info .text').html() + ' | ' + smth);
 }
 
 function refresh() {
+
+	if (whiteTurn) {
+		$('#info .turn').text('WHITE');
+	} else {
+		$('#info .turn').text('BLACK');
+	}
+    
 	context.clearRect(0, 0, BOARD_SIZE, BOARD_SIZE);
 	drawBoard();
 	drawPieces();
@@ -111,6 +123,16 @@ function drawPieces() {
 }
 
 function drawBoard(){
+    for (var i = 0; i < 8; i++) {
+        for (var j = 0; j < 8; j++) {
+            if (i % 2 != j % 2) {
+                context.fillStyle = COLOR_WHITE;
+            } else {
+                context.fillStyle = COLOR_BLACK;
+            }
+            context.fillRect(j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+        }
+    }
 	context.beginPath();
 	for (var x = 0.5; x < BOARD_SIZE; x += CELL_SIZE) {
 		context.moveTo(x, 0);
@@ -119,9 +141,9 @@ function drawBoard(){
 	for (var y = 0.5; y < BOARD_SIZE; y += CELL_SIZE) {
 		context.moveTo(0, y);
 		context.lineTo(BOARD_SIZE, y);
-	}	
-	context.strokeStyle = "#eee";
-	context.stroke();	
+	}
+	context.strokeStyle = "#ccc";
+	context.stroke();
 }
 
 function drawPiece(cell){
@@ -133,11 +155,11 @@ function drawPiece(cell){
 	
 	piece = cell.isWhite ? images.green : images.blue;
 	if (cell.isSelected) {
-		// øàøêó äâèãàåì, çíà÷èò íà ïîëå å¸ íå ðèñóåì
+		// ÑˆÐ°ÑˆÐºÑƒ Ð´Ð²Ð¸Ð³Ð°ÐµÐ¼, Ð·Ð½Ð°Ñ‡Ð¸Ñ‚ Ð½Ð° Ð¿Ð¾Ð»Ðµ ÐµÑ‘ Ð½Ðµ Ñ€Ð¸ÑÑƒÐµÐ¼
 		if (!touching) {
 			context.drawImage(piece, px , py);
 			
-			// îáâîäèì øàøêó
+			// Ð¾Ð±Ð²Ð¾Ð´Ð¸Ð¼ ÑˆÐ°ÑˆÐºÑƒ
 			context.beginPath();
 			r = CELL_SIZE / 2 - 1;
 			context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
@@ -150,7 +172,7 @@ function drawPiece(cell){
 			context.stroke();			
 		}
 	} else {
-		// ðèñóåì îáû÷íóþ øàøêè
+		// Ñ€Ð¸ÑÑƒÐµÐ¼ Ð¾Ð±Ñ‹Ñ‡Ð½ÑƒÑŽ ÑˆÐ°ÑˆÐºÐ¸
 		context.drawImage(piece, px , py);
 	}
 }
@@ -163,7 +185,7 @@ function drawPieceXY(cell, x, y){
 	context.drawImage(piece, px , py);
 	
 	if (cell.isSelected) {
-		// îáâîäèì øàøêó
+		// Ð¾Ð±Ð²Ð¾Ð´Ð¸Ð¼ ÑˆÐ°ÑˆÐºÑƒ
 		context.beginPath();
 		r = CELL_SIZE / 2 - 1;
 		context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
@@ -193,15 +215,19 @@ function onStart(e) {
 	diff_board_coords = {	x : Math.floor(coords.x / CELL_SIZE), 
 							y : Math.floor(coords.y / CELL_SIZE)};
 
-	// ïðîâåðêà íà ïîïàäàíèå â øàøêó
+	// Ð¿Ñ€Ð¾Ð²ÐµÑ€ÐºÐ° Ð½Ð° Ð¿Ð¾Ð¿Ð°Ð´Ð°Ð½Ð¸Ðµ Ð² ÑˆÐ°ÑˆÐºÑƒ
 	if (isHitChecker()) {
 		
-		// ïîëó÷àåì âûáðàííóþ øàøêó
+		// Ð¿Ð¾Ð»ÑƒÑ‡Ð°ÐµÐ¼ Ð²Ñ‹Ð±Ñ€Ð°Ð½Ð½ÑƒÑŽ ÑˆÐ°ÑˆÐºÑƒ
 		for (i in pieces) {
+            // ÑƒÐ±Ð¸Ñ€Ð°ÐµÐ¼ Ð²Ñ‹Ð´ÐµÐ»ÐµÐ½Ð¸Ðµ Ñ Ð´Ñ€ÑƒÐ³Ð¸Ñ… ÑˆÐ°ÑˆÐµÐº
 			if (pieces[i].isSelected) {
 				pieces[i].isSelected = false;
 			}
-			if (pieces[i].x == diff_board_coords.x && pieces[i].y == diff_board_coords.y) {
+            
+			if (pieces[i].x == diff_board_coords.x && pieces[i].y == diff_board_coords.y
+                && (whiteTurn == pieces[i].isWhite))
+            {
 				isSelected = i;
 				pieces[i].isSelected = true;
 			}
@@ -230,13 +256,17 @@ function onStop(e) {
 			if (new_y > 7) new_y = 7;
 			if (new_y < 0) new_y = 0;
 			
-			// ïåðåìåñòèëè øàøêó
+			// Ð¿ÐµÑ€ÐµÐ¼ÐµÑÑ‚Ð¸Ð»Ð¸ ÑˆÐ°ÑˆÐºÑƒ
 			if (pieces[isSelected].x != new_x || pieces[isSelected].y != new_y) {
-				pieces[isSelected].x = new_x;
-				pieces[isSelected].y = new_y;			
+                if (isEmpty(new_x, new_y)) {
+                    pieces[isSelected].x = new_x;
+                    pieces[isSelected].y = new_y;
 
-				pieces[isSelected].isSelected = false;
-				isSelected = -1;
+                    pieces[isSelected].isSelected = false;
+                    isSelected = -1;
+
+                    whiteTurn = !whiteTurn;
+                }
 			}
 			
 			refresh();
@@ -256,8 +286,8 @@ function onMove(e) {
 	
 	last_coords = coords;
 
-	$('#coords .x').text('X: ' + coords.x); $('#coords .cx').text('CX: ' + Math.ceil(coords.x / CELL_SIZE));
-	$('#coords .y').text('Y: ' + coords.y); $('#coords .cy').text('CY: ' + Math.ceil(coords.y / CELL_SIZE));
+	$('#info .x').text('X: ' + coords.x); $('#info .cx').text('CX: ' + Math.ceil(coords.x / CELL_SIZE));
+	$('#info .y').text('Y: ' + coords.y); $('#info .cy').text('CY: ' + Math.ceil(coords.y / CELL_SIZE));
 
 
 	if (touching) {		
@@ -305,7 +335,19 @@ function getCoords(e) {
 
 function isHitChecker() {
 	return Math.sqrt(Math.pow(diff_coords.x - (CELL_SIZE / 2), 2) + Math.pow(diff_coords.y - (CELL_SIZE / 2), 2)) <= (CELL_SIZE / 2);
-}		
+}
+
+function canMove(piece, x, y) {
+    return true;
+}
+function isEmpty(x,y) {
+    for (i in pieces) {
+        if (pieces[i].x == x && pieces[i].y == y) {
+            return false;
+        }
+    }
+    return true;
+}
 
 		</script>
 		<style type="text/css" media="screen">
@@ -323,19 +365,21 @@ function isHitChecker() {
 				width: 640px;
 				margin: 0px auto 0px;
 			}
-			#coords {
+			#info {
 				position:absolute;
 			}
 		</style>
-	</head>	<body>
+	</head>
+	<body>
 		<div id="wrap">		
-			<div id="coords">
+			<div id="info">
+				<div class="turn"></div>
 				<div class="x"></div>
 				<div class="y"></div>
 				<div class="cx"></div>
 				<div class="cy"></div>
 				<div class="text"></div>
-			</div>	
+			</div>
 			
 			<div id="canv_wrap">
 				<canvas id="canv" width="640" height="640"></canvas>
