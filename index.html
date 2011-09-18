@@ -12,21 +12,23 @@ var context = null;
 var cb_lastPoints = [];
 var CELL_SIZE = 80;
 var BOARD_SIZE = CELL_SIZE * 8;
+var SELECTION_COLOR = '#c0c';
 var touching = false;
 var images = {};
 var diff_coords = {};
 var last_coords = {};
 
-var whitePieces;
-var blackPieces;
+var pieces;
 
-var wSelected = -1;
-var bSelected = -1;
+var isSelected = -1;
 
-var Cell = function(y, x, king) {
+var Cell = function(y, x, kind) {
 	this.y = y;
 	this.x = x;
-	this.isKing = king;
+	this.isKing = false;
+	this.isSelected = false;
+	this.isWhite = kind == 'black' ? false : true;
+	this.isBlack = kind == 'black' ? true : false;
 };
 			
 window.onload = function(){
@@ -61,20 +63,20 @@ function loadImages(sources, callback){
 function init() {
 	canvas = document.getElementById("canv");
 
-	whitePieces = [
-		new Cell(5, 0, false), new Cell(5, 2, false),
-		new Cell(5, 4, false), new Cell(5, 6, false),
-		new Cell(6, 1, false), new Cell(6, 3, false),
-		new Cell(6, 5, false), new Cell(6, 7, false),
-		new Cell(7, 0, false), new Cell(7, 2, false),
-		new Cell(7, 4, false), new Cell(7, 6, false)];
-	blackPieces = [
-		new Cell(0, 1, false), new Cell(0, 3, false),
-		new Cell(0, 5, false), new Cell(0, 7, false),
-		new Cell(1, 0, false), new Cell(1, 2, false),
-		new Cell(1, 4, false), new Cell(1, 6, false),
-		new Cell(2, 1, false), new Cell(2, 3, false),
-		new Cell(2, 5, false), new Cell(2, 7, false)];	
+	pieces = [
+		new Cell(5, 0, 'white'), new Cell(5, 2, 'white'),
+		new Cell(5, 4, 'white'), new Cell(5, 6, 'white'),
+		new Cell(6, 1, 'white'), new Cell(6, 3, 'white'),
+		new Cell(6, 5, 'white'), new Cell(6, 7, 'white'),
+		new Cell(7, 0, 'white'), new Cell(7, 2, 'white'),
+		new Cell(7, 4, 'white'), new Cell(7, 6, 'white'),
+		
+		new Cell(0, 1, 'black'), new Cell(0, 3, 'black'),
+		new Cell(0, 5, 'black'), new Cell(0, 7, 'black'),
+		new Cell(1, 0, 'black'), new Cell(1, 2, 'black'),
+		new Cell(1, 4, 'black'), new Cell(1, 6, 'black'),
+		new Cell(2, 1, 'black'), new Cell(2, 3, 'black'),
+		new Cell(2, 5, 'black'), new Cell(2, 7, 'black')];	
 	
 	if (canvas.getContext) {
 		
@@ -103,12 +105,8 @@ function refresh() {
 }
 
 function drawPieces() {
-
-	for (i in whitePieces) {
-		drawPiece(whitePieces[i], (i == wSelected), true);
-	}
-	for (i in blackPieces) {
-		drawPiece(blackPieces[i], (i == bSelected), false);
+	for (i in pieces) {
+		drawPiece(pieces[i]);
 	}
 }
 
@@ -126,28 +124,57 @@ function drawBoard(){
 	context.stroke();	
 }
 
-function drawPiece(cell, selected, white){
+function drawPiece(cell){
 	x = cell.x;
 	y = cell.y;
 	
 	px = CELL_SIZE * x;
 	py = CELL_SIZE * y;
 	
-	piece = white ? images.green : images.blue;
-	if (selected) {
+	piece = cell.isWhite ? images.green : images.blue;
+	if (cell.isSelected) {
 		// шашку двигаем, значит на поле её не рисуем
+		if (!touching) {
+			context.drawImage(piece, px , py);
+			
+			// обводим шашку
+			context.beginPath();
+			r = CELL_SIZE / 2 - 1;
+			context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+			context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+			context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+			context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+			context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+			context.closePath();
+			context.strokeStyle = SELECTION_COLOR;
+			context.stroke();			
+		}
 	} else {
 		// рисуем обычную шашки
 		context.drawImage(piece, px , py);
 	}
 }
 
-function drawPieceXY(cell, selected, white, y, x){
+function drawPieceXY(cell, x, y){
 	px = x ? x : 0;
 	py = y ? y : 0;
 	
-	piece = white ? images.green : images.blue;
+	piece = cell.isWhite ? images.green : images.blue;
 	context.drawImage(piece, px , py);
+	
+	if (cell.isSelected) {
+		// обводим шашку
+		context.beginPath();
+		r = CELL_SIZE / 2 - 1;
+		context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+		context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+		context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+		context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+		context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+		context.closePath();
+		context.strokeStyle = SELECTION_COLOR;
+		context.stroke();		
+	}
 }
 
 function onStart(e) {
@@ -159,6 +186,7 @@ function onStart(e) {
 		coords = getCoords(e);
 	}
 	last_coords = coords;
+	console.log(last_coords);
 	
 	diff_coords = {	x : coords.x - Math.floor(coords.x / CELL_SIZE) * CELL_SIZE, 
 					y : coords.y - Math.floor(coords.y / CELL_SIZE) * CELL_SIZE};
@@ -169,16 +197,13 @@ function onStart(e) {
 	if (isHitChecker()) {
 		
 		// получаем выбранную шашку
-		for (i in whitePieces) {
-			if (whitePieces[i].x == diff_board_coords.x && whitePieces[i].y == diff_board_coords.y) {
-				wSelected = i;
+		for (i in pieces) {
+			if (pieces[i].isSelected) {
+				pieces[i].isSelected = false;
 			}
-		}
-		if (wSelected == -1) {
-			for (i in blackPieces) {
-				if (blackPieces[i].x == diff_board_coords.x && blackPieces[i].y == diff_board_coords.y) {
-					bSelected = i;
-				}
+			if (pieces[i].x == diff_board_coords.x && pieces[i].y == diff_board_coords.y) {
+				isSelected = i;
+				pieces[i].isSelected = true;
 			}
 		}
 		
@@ -195,7 +220,7 @@ function onStop(e) {
 	if (touching) {
 		touching = false;
 
-		if (wSelected >=0 ) {
+		if (isSelected >=0 ) {
 			
 			new_x = Math.ceil(last_coords.x / CELL_SIZE) - 1;
 			if (new_x > 7) new_x = 7;
@@ -205,14 +230,15 @@ function onStop(e) {
 			if (new_y > 7) new_y = 7;
 			if (new_y < 0) new_y = 0;
 			
-			whitePieces[wSelected].x = new_x;
-			whitePieces[wSelected].y = new_y;
-			wSelected = -1;
-			refresh();
-		} else if (bSelected >= 0) {
-			blackPieces[bSelected].x = Math.ceil(last_coords.x / CELL_SIZE) - 1;
-			blackPieces[bSelected].y = Math.ceil(last_coords.y / CELL_SIZE) - 1;
-			bSelected = -1;		
+			// переместили шашку
+			if (pieces[isSelected].x != new_x || pieces[isSelected].y != new_y) {
+				pieces[isSelected].x = new_x;
+				pieces[isSelected].y = new_y;			
+
+				pieces[isSelected].isSelected = false;
+				isSelected = -1;
+			}
+			
 			refresh();
 		}
 	}
@@ -221,28 +247,27 @@ function onStop(e) {
 
 
 function onMove(e) {
-	if (touching) {
-		if (e.touches) {
-			// Touch Enabled
-			coords = getCoords(e.touches[0]); // Get info for finger i
-		} else {
-			coords = getCoords(e);
-		}
-		
-		last_coords = coords;
-		
+	if (e.touches) {
+		// Touch Enabled
+		coords = getCoords(e.touches[0]); // Get info for finger i
+	} else {
+		coords = getCoords(e);
+	}
+	
+	last_coords = coords;
+
+	$('#coords .x').text('X: ' + coords.x); $('#coords .cx').text('CX: ' + Math.ceil(coords.x / CELL_SIZE));
+	$('#coords .y').text('Y: ' + coords.y); $('#coords .cy').text('CY: ' + Math.ceil(coords.y / CELL_SIZE));
+
+
+	if (touching) {		
 		checker_coords = {	x : coords.x - diff_coords.x,
 							y : coords.y - diff_coords.y};
 		
-		//$('#coords .x').text('X: ' + coords.x + '     CX: ' + Math.ceil(coords.x / CELL_SIZE));
-		//$('#coords .y').text('Y: ' + coords.x + '     CY: ' + Math.ceil(coords.y / CELL_SIZE));
-
 		refresh();
 		
-		if (wSelected >= 0) {
-			drawPieceXY(whitePieces[wSelected], true, true, checker_coords.y, checker_coords.x);
-		} else if (bSelected >= 0) {
-			drawPieceXY(blackPieces[bSelected], true, false, checker_coords.y, checker_coords.x);
+		if (isSelected >= 0) {
+			drawPieceXY(pieces[isSelected], checker_coords.x, checker_coords.y);
 		}
 	}
 
@@ -258,7 +283,16 @@ function drawLine(sX, sY, eX, eY) {
 
 // Get the coordinates for a mouse or touch event
 function getCoords(e) {
-	if (e.offsetX) {
+	if (e.pageX == null && e.clientX != null ) { 
+		var html = document.documentElement
+		var body = document.body
+	
+		e.pageX = e.clientX + (html && html.scrollLeft || body && body.scrollLeft || 0) - (html.clientLeft || 0)
+		e.pageY = e.clientY + (html && html.scrollTop || body && body.scrollTop || 0) - (html.clientTop || 0)
+	}
+	return { x: e.pageX - canvas.offsetLeft, y: e.pageY - canvas.offsetTop };
+	
+	/*if (e.offsetX) {
 		return { x: e.offsetX, y: e.offsetY };
 	}
 	else if (e.layerX) {
@@ -266,13 +300,13 @@ function getCoords(e) {
 	}
 	else {
 		return { x: e.pageX - canvas.offsetLeft, y: e.pageY - canvas.offsetTop };
-	}
+	}*/
 }
 
 function isHitChecker() {
 	return Math.sqrt(Math.pow(diff_coords.x - (CELL_SIZE / 2), 2) + Math.pow(diff_coords.y - (CELL_SIZE / 2), 2)) <= (CELL_SIZE / 2);
 }		
-		
+
 		</script>
 		<style type="text/css" media="screen">
 			body {
@@ -287,20 +321,28 @@ function isHitChecker() {
 			#canv_wrap {
 				border: 1px solid #777;
 				width: 640px;
-				margin: 64px auto;
+				margin: 0px auto 0px;
+			}
+			#coords {
+				position:absolute;
 			}
 		</style>
 	</head>	<body>
-		<div id="wrap">
-			<div id="canv_wrap">
-				<canvas id="canv" width="640" height="640"></canvas>
-			</div>
-			
+		<div id="wrap">		
 			<div id="coords">
 				<div class="x"></div>
 				<div class="y"></div>
+				<div class="cx"></div>
+				<div class="cy"></div>
 				<div class="text"></div>
-			</div>			
+			</div>	
+			
+			<div id="canv_wrap">
+				<canvas id="canv" width="640" height="640"></canvas>
+			</div>
+
+			
+		
 		</div>
 	</body>
 </html>
