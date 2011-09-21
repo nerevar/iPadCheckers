@@ -21,6 +21,8 @@ var images = {};
 var diff_coords = {};
 var last_coords = {};
 
+var avaibleMoves = [];
+
 var whiteTurn = true;
 
 var pieces;
@@ -34,6 +36,7 @@ var Cell = function(y, x, kind) {
 	this.isSelected = false;
 	this.isWhite = kind == 'black' ? false : true;
 	this.isBlack = kind == 'black' ? true : false;
+    this.isActive = true;
 };
 			
 window.onload = function(){
@@ -114,6 +117,17 @@ function refresh() {
 	context.clearRect(0, 0, BOARD_SIZE, BOARD_SIZE);
 	drawBoard();
 	drawPieces();
+
+    drawNumbers();
+}
+
+function drawNumbers() {
+    context.fillStyle = "#555";
+    for (var i = 0; i < 8; i++) {
+        for (var j = 0; j < 8; j++) {
+            context.fillText('[' + j + ';' + i + ']', j * CELL_SIZE + 30, i * CELL_SIZE + 45);
+        }
+    }
 }
 
 function drawPieces() {
@@ -126,9 +140,9 @@ function drawBoard(){
     for (var i = 0; i < 8; i++) {
         for (var j = 0; j < 8; j++) {
             if (i % 2 != j % 2) {
-                context.fillStyle = COLOR_WHITE;
-            } else {
                 context.fillStyle = COLOR_BLACK;
+            } else {
+                context.fillStyle = COLOR_WHITE;
             }
             context.fillRect(j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE, CELL_SIZE);
         }
@@ -147,6 +161,10 @@ function drawBoard(){
 }
 
 function drawPiece(cell){
+    if (! cell.isActive) {
+        return;
+    }
+    
 	x = cell.x;
 	y = cell.y;
 	
@@ -199,6 +217,28 @@ function drawPieceXY(cell, x, y){
 	}
 }
 
+function getRecMoves (currentMoves) {
+    if (currentMoves && currentMoves.length > 0) {
+        for (k in currentMoves) {
+
+            if (currentMoves[k].moves.length > 0) {
+                getRecMoves(currentMoves[k].moves);
+            } else {
+                fillAvaibleMove(currentMoves[k].x, currentMoves[k].y)
+            }
+        }
+    }
+}
+
+function fillAvaibleMove(x, y) {
+    context.beginPath();
+    context.strokeStyle = "yellow";
+    context.lineWidth = 4;
+    context.arc(x * CELL_SIZE + CELL_SIZE/2, y * CELL_SIZE + CELL_SIZE/2, CELL_SIZE/2, 0, Math.PI * 2, true);
+    context.stroke();
+    context.lineWidth = 1;
+}
+
 function onStart(e) {
 	if (e.touches) {
 		// Touch event
@@ -208,12 +248,13 @@ function onStart(e) {
 		coords = getCoords(e);
 	}
 	last_coords = coords;
-	console.log(last_coords);
-	
+
 	diff_coords = {	x : coords.x - Math.floor(coords.x / CELL_SIZE) * CELL_SIZE, 
 					y : coords.y - Math.floor(coords.y / CELL_SIZE) * CELL_SIZE};
 	diff_board_coords = {	x : Math.floor(coords.x / CELL_SIZE), 
 							y : Math.floor(coords.y / CELL_SIZE)};
+
+    //$('#info .event').text($('#info .event').text() + '| ' + e.type);
 
 	// проверка на попадание в шашку
 	if (isHitChecker()) {
@@ -230,11 +271,24 @@ function onStart(e) {
             {
 				isSelected = i;
 				pieces[i].isSelected = true;
+
+                // получаем доступные ходы для шашки
+                avaibleMoves = getAvaibleMoves({x : pieces[i].x, y : pieces[i].y, isWhite: pieces[i].isWhite});
+
+                // рисуем доступные ходы
+                getRecMoves(avaibleMoves);
 			}
 		}
 		
 		touching = true;
-	}
+	} else {
+        /*
+        // убираем выделение с других шашек
+        if (pieces[i].isSelected) {
+            pieces[i].isSelected = false;
+        }
+        */
+    }
 	
 	return false;
 }
@@ -255,24 +309,68 @@ function onStop(e) {
 			new_y = Math.ceil(last_coords.y / CELL_SIZE) - 1;
 			if (new_y > 7) new_y = 7;
 			if (new_y < 0) new_y = 0;
-			
+
 			// переместили шашку
 			if (pieces[isSelected].x != new_x || pieces[isSelected].y != new_y) {
-                if (isEmpty(new_x, new_y)) {
+                if (canPieceMove(avaibleMoves, new_x, new_y)) {
+
+                    removeBeatenPieces(avaibleMoves, new_x, new_y);
                     pieces[isSelected].x = new_x;
                     pieces[isSelected].y = new_y;
 
                     pieces[isSelected].isSelected = false;
+                    pieces[isSelected].isKing = isKing(pieces[isSelected]);
                     isSelected = -1;
 
                     whiteTurn = !whiteTurn;
                 }
 			}
-			
+
 			refresh();
 		}
 	}
 	return false;
+}
+
+function canPieceMove(currentMoves, x, y) {
+    if (currentMoves && currentMoves.length > 0) {
+        for (k in currentMoves) {
+
+            if (currentMoves[k].moves.length > 0) {
+                return canPieceMove(currentMoves[k].moves, x, y);
+            } else {
+                if (currentMoves[k].x == x && currentMoves[k].y == y) {
+                    return currentMoves[k];
+                }
+            }
+        }
+    }
+    return false;
+}
+
+function removeBeatenPieces(currentMoves, x, y) {
+    if (currentMoves && currentMoves.length > 0) {
+        for (k in currentMoves) {
+            if (currentMoves[k].beat) {
+                piece_key = getPieceIndexAt(currentMoves[k].beat.x, currentMoves[k].beat.y);
+                pieces[piece_key].isActive = false;
+                pieces[piece_key].x = -1;
+                pieces[piece_key].y = -1;
+            }
+            if (currentMoves[k].moves.length > 0) {
+                return removeBeatenPieces(currentMoves[k].moves, x, y);
+            }
+        }
+    }
+}
+
+function getPieceIndexAt(x, y) {
+    for (i = 0; i < 24; i++){
+        if (pieces[i].x == x && pieces[i].y == y) {
+            return i;
+        }
+    }
+    return null;
 }
 
 
@@ -283,25 +381,170 @@ function onMove(e) {
 	} else {
 		coords = getCoords(e);
 	}
-	
+
 	last_coords = coords;
 
 	$('#info .x').text('X: ' + coords.x); $('#info .cx').text('CX: ' + Math.ceil(coords.x / CELL_SIZE));
 	$('#info .y').text('Y: ' + coords.y); $('#info .cy').text('CY: ' + Math.ceil(coords.y / CELL_SIZE));
 
 
-	if (touching) {		
+	if (touching) {
 		checker_coords = {	x : coords.x - diff_coords.x,
 							y : coords.y - diff_coords.y};
-		
+
 		refresh();
-		
+
 		if (isSelected >= 0) {
+            pieces[isSelected].isSelected = true;
 			drawPieceXY(pieces[isSelected], checker_coords.x, checker_coords.y);
 		}
 	}
 
 	return false;
+}
+
+function getAvaibleMoves(cell) {
+
+    var thisTurnMoves = [];
+    
+    if (! cell.parent_x && ! cell.parent_y) {
+        // Проверяем доступные простые ходы
+        if (cell.isWhite) {
+            if (cell.y >= 1 && cell.x <= 6 && ! isPieceHere(cell.x + 1, cell.y - 1)) {
+                var pMove = {
+                    x: cell.x + 1,
+                    y: cell.y - 1,
+                    moves:[]
+                };
+                thisTurnMoves.push(pMove);
+            }
+            if (cell.y >= 1 && cell.x >= 1 && ! isPieceHere(cell.x - 1, cell.y - 1)) {
+                var pMove = {
+                    x: cell.x - 1,
+                    y: cell.y - 1,
+                    moves:[]
+                };
+                thisTurnMoves.push(pMove);
+            }
+        } else {
+            if (cell.y <= 6 && cell.x <= 6 && ! isPieceHere(cell.x + 1, cell.y + 1)) {
+                var pMove = {
+                    x: cell.x + 1,
+                    y: cell.y + 1,
+                    moves:[]
+                };
+                thisTurnMoves.push(pMove);
+            }
+            if (cell.y <= 6 && cell.x >= 1 && ! isPieceHere(cell.x - 1, cell.y + 1)) {
+                var pMove = {x: 0, y: 0, moves:[]};
+                var pMove = {
+                    x: cell.x - 1,
+                    y: cell.y + 1,
+                    moves:[]
+                };
+                thisTurnMoves.push(pMove);
+            }
+        }
+    }
+
+    // взятие NE
+    if (cell.y >= 2 && cell.x <= 5
+        && (cell.x + 2 != cell.parent_x
+        && cell.y - 2 != cell.parent_y)
+        && ((isPieceHere(cell.x + 1, cell.y - 1) == 'black' && cell.isWhite)
+            || (isPieceHere(cell.x + 1, cell.y - 1) == 'white' && ! cell.isWhite))
+        && ! isPieceHere(cell.x + 2, cell.y - 2))
+    {
+        var pMove = {
+            x: cell.x + 2,
+            y: cell.y - 2,
+            moves:[],
+            beat: {
+                x: cell.x + 1,
+                y: cell.y - 1
+            }
+        };
+        thisTurnMoves.push(pMove);
+    }
+    // взятие SE
+    if (cell.y <= 5 && cell.x <= 5
+        && (cell.x + 2 != cell.parent_x
+            || cell.y + 2 != cell.parent_y)
+        && ((isPieceHere(cell.x + 1, cell.y + 1) == 'black' && cell.isWhite)
+            || (isPieceHere(cell.x + 1, cell.y + 1) == 'white' && ! cell.isWhite))
+        && ! isPieceHere(cell.x + 2, cell.y + 2))
+    {
+        var pMove = {
+            x: cell.x + 2,
+            y: cell.y + 2,
+            moves:[],
+            beat: {
+                x: cell.x + 1,
+                y: cell.y + 1
+            }
+        };
+        thisTurnMoves.push(pMove);
+    }
+    // взятие SW
+    if (cell.y <= 5 && cell.x >= 2
+        && (cell.x - 2 != cell.parent_x
+            || cell.y + 2 != cell.parent_y)
+        && ((isPieceHere(cell.x - 1, cell.y + 1) == 'black' && cell.isWhite)
+            || (isPieceHere(cell.x - 1, cell.y + 1) == 'white' && ! cell.isWhite))
+        && ! isPieceHere(cell.x - 2, cell.y + 2))
+    {
+        var pMove = {
+            x: cell.x - 2,
+            y: cell.y + 2,
+            moves:[],
+            beat: {
+                x: cell.x - 1,
+                y: cell.y + 1
+            }
+        };
+        thisTurnMoves.push(pMove);
+    }
+    // взятие NW
+    if (cell.y >= 2 && cell.x >= 2
+        && (cell.x - 2 != cell.parent_x
+            || cell.y - 2 != cell.parent_y)
+        && ((isPieceHere(cell.x - 1, cell.y - 1) == 'black' && cell.isWhite)
+            || (isPieceHere(cell.x - 1, cell.y - 1) == 'white' && ! cell.isWhite))
+        && ! isPieceHere(cell.x - 2, cell.y - 2))
+    {
+        var pMove = {
+            x: cell.x - 2,
+            y: cell.y - 2,
+            moves:[],
+            beat: {
+                x: cell.x - 1,
+                y: cell.y - 1
+            }
+        };
+        thisTurnMoves.push(pMove);
+    }
+
+    for (i in thisTurnMoves) {
+        if (thisTurnMoves[i].beat) {
+            thisTurnMoves[i].moves = getAvaibleMoves({x: thisTurnMoves[i].x, y: thisTurnMoves[i].y, isWhite: cell.isWhite, parent_x : cell.x, parent_y: cell.y});
+        }
+    }
+    return thisTurnMoves;
+}
+
+// Определяет является ли шашка дамкой
+function isKing(cell) {
+    if (cell.isKing) {
+        return true;
+    }
+    if (cell.isWhite && cell.y == 0) {
+        return true;
+    }
+    if (! cell.isWhite && cell.y == 7) {
+        return true;
+    }
+    return false;
+
 }
 
 // Draw a line on the canvas from (s)tart to (e)nd
@@ -340,13 +583,13 @@ function isHitChecker() {
 function canMove(piece, x, y) {
     return true;
 }
-function isEmpty(x,y) {
+function isPieceHere(x, y) {
     for (i in pieces) {
         if (pieces[i].x == x && pieces[i].y == y) {
-            return false;
+            return pieces[i].isWhite ? 'white' : 'black';
         }
     }
-    return true;
+    return false;
 }
 
 		</script>
@@ -356,7 +599,6 @@ function isEmpty(x,y) {
 			}
 			#wrap {
 				width: 768px;
-				height:
 				max-height: 1024px;
 				overflow: hidden;
 			}
@@ -379,6 +621,7 @@ function isEmpty(x,y) {
 				<div class="cx"></div>
 				<div class="cy"></div>
 				<div class="text"></div>
+                <div class="event"></div>
 			</div>
 			
 			<div id="canv_wrap">
