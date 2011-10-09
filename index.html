@@ -16,19 +16,25 @@ var BOARD_SIZE = CELL_SIZE * 8;
 var COLOR_BLACK = '#ededed';
 var COLOR_WHITE = '#fff';
 var SELECTION_COLOR = '#c0c';
-var touching = false;
+var touching = false; // флаг определяющий нажатие мыши/пальца во время перемещения
 var images = {};
 var diff_coords = {};
-var last_coords = {};
+var last_coords = {}; // последние координаты
 
-var avaibleMoves = [];
+var avaibleMoves = []; // рассчитываемые возможные ходы шашки
+var piecePath = []; // рассчитываемый маршрут шашек при непосредственно ходе
 
-var whiteTurn = true;
-
-var pieces;
+var whiteTurn = true; // флаг определяющий ход
+var mustBeat = false; // флаг определяющий, должен ли бить игрок. Определяется после каждого хода
+var countBeatenPieces = 0;
+var log = null; // объект для логирования сообщений
+var pieces; // сами шашки
 
 var isSelected = -1;
 
+/**
+ * Объект шашка
+ */
 var Cell = function(y, x, kind) {
 	this.y = y;
 	this.x = x;
@@ -38,19 +44,40 @@ var Cell = function(y, x, kind) {
 	this.isBlack = kind == 'black' ? true : false;
     this.isActive = true;
 };
+
+/**
+ * Объект логгер для ведения логов
+ */
+var Logger = function(output_id) {
+    this.output = document.getElementById(output_id);
+
+    /**
+     * Добавляет текст в окно вывода
+     * @param text
+     */
+    this.add = function(text) {
+        this.output.innerHTML +=  text + '<br />';
+        this.output.scrollTop = this.output.scrollHeight;
+    }
+}
 			
 window.onload = function(){
-	var sources = {
+    init();
+	/*var sources = {
 		green: "./img/green.png",
 		blue: "./img/blue.png"
 	};
 	
 	loadImages(sources, function(){
 		init();
-	});
+	});*/
 };
 
-
+/**
+ * Загружает изображения в контекст и вызывает функцию по их заверщению
+ * @param sources - массив(объект) изображений
+ * @param callback - вызываемая функция
+ */
 function loadImages(sources, callback){
 	var loadedImages = 0;
 	var numImages = 0;
@@ -68,24 +95,13 @@ function loadImages(sources, callback){
 	}
 }
 
+/**
+ * Инициализация шашек
+ * Инициализирует контекст, события мыши/пальца, расставляет шашки, начинает новую игру
+ */
 function init() {
 	canvas = document.getElementById("canv");
 
-	pieces = [
-		new Cell(5, 0, 'white'), new Cell(5, 2, 'white'),
-		new Cell(5, 4, 'white'), new Cell(5, 6, 'white'),
-		new Cell(6, 1, 'white'), new Cell(6, 3, 'white'),
-		new Cell(6, 5, 'white'), new Cell(6, 7, 'white'),
-		new Cell(7, 0, 'white'), new Cell(7, 2, 'white'),
-		new Cell(7, 4, 'white'), new Cell(7, 6, 'white'),
-		
-		new Cell(0, 1, 'black'), new Cell(0, 3, 'black'),
-		new Cell(0, 5, 'black'), new Cell(0, 7, 'black'),
-		new Cell(1, 0, 'black'), new Cell(1, 2, 'black'),
-		new Cell(1, 4, 'black'), new Cell(1, 6, 'black'),
-		new Cell(2, 1, 'black'), new Cell(2, 3, 'black'),
-		new Cell(2, 5, 'black'), new Cell(2, 7, 'black')];
-	
 	if (canvas.getContext) {
 		
 		context = canvas.getContext('2d');
@@ -97,15 +113,39 @@ function init() {
 		canvas.ontouchstart = onStart;
 		canvas.ontouchend = onStop;
 		canvas.ontouchmove = onMove;
-		
+
+        log = new Logger('log_info');
+        newGame();
 		refresh();
+        log.add('Начата новая игра');
+        log.add('Ход белых');
 	}
 }
 
-function log(smth) {
-	$('#info .text').html($('#info .text').html() + ' | ' + smth);
+/**
+ * Начинает новую игру, присваивает координаты шашкам
+ */
+function newGame() {
+	pieces = [
+		new Cell(5, 0, 'white'), new Cell(5, 2, 'white'),
+		new Cell(5, 4, 'white'), new Cell(5, 6, 'white'),
+		new Cell(6, 1, 'white'), new Cell(6, 3, 'white'),
+		new Cell(6, 5, 'white'), new Cell(6, 7, 'white'),
+		new Cell(7, 0, 'white'), new Cell(7, 2, 'white'),
+		new Cell(7, 4, 'white'), new Cell(7, 6, 'white'),
+
+		new Cell(0, 1, 'black'), new Cell(0, 3, 'black'),
+		new Cell(0, 5, 'black'), new Cell(0, 7, 'black'),
+		new Cell(1, 0, 'black'), new Cell(1, 2, 'black'),
+		new Cell(1, 4, 'black'), new Cell(1, 6, 'black'),
+		new Cell(2, 1, 'black'), new Cell(2, 3, 'black'),
+		new Cell(2, 5, 'black'), new Cell(2, 7, 'black')];
 }
 
+/**
+ * Процедура перерисовки поля.
+ * Перерисовывает поле, шашки, рисует номера клеток
+ */
 function refresh() {
 
 	if (whiteTurn) {
@@ -117,10 +157,12 @@ function refresh() {
 	context.clearRect(0, 0, BOARD_SIZE, BOARD_SIZE);
 	drawBoard();
 	drawPieces();
-
     drawNumbers();
 }
 
+/**
+ * Рисует номера клеток
+ */
 function drawNumbers() {
     context.fillStyle = "#555";
     for (var i = 0; i < 8; i++) {
@@ -130,12 +172,18 @@ function drawNumbers() {
     }
 }
 
+/**
+ * Рисует все шашки на доске
+ */
 function drawPieces() {
 	for (i in pieces) {
 		drawPiece(pieces[i]);
 	}
 }
 
+/**
+ * Рисует доску
+ */
 function drawBoard(){
     for (var i = 0; i < 8; i++) {
         for (var j = 0; j < 8; j++) {
@@ -160,6 +208,10 @@ function drawBoard(){
 	context.stroke();
 }
 
+/**
+ * Рисует указанную шашку на своём месте на поле
+ * @param cell - объект шашки, содержит инфу о КООРДИНАТАХ, о ЦВЕТЕ, о ДАМКЕ, о ВЫДЕЛЕННОЙ шашке
+ */
 function drawPiece(cell){
     if (! cell.isActive) {
         return;
@@ -171,65 +223,148 @@ function drawPiece(cell){
 	px = CELL_SIZE * x;
 	py = CELL_SIZE * y;
 	
-	piece = cell.isWhite ? images.green : images.blue;
 	if (cell.isSelected) {
-		// шашку двигаем, значит на поле её не рисуем
-		if (!touching) {
-			context.drawImage(piece, px , py);
-			
-			// обводим шашку
-			context.beginPath();
-			r = CELL_SIZE / 2 - 1;
-			context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
-			context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
-			context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
-			context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
-			context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
-			context.closePath();
-			context.strokeStyle = SELECTION_COLOR;
-			context.stroke();			
-		}
+        // если шашка выделена
+
+		if (touching) {
+		    // шашку двигаем, значит на поле её не рисуем
+		} else {
+            // шашку просто выделели, рисуем на её же месте обведённую
+            cell.isKing ?  drawKingPieceatXY(cell.isWhite, px, py) : drawPieceatXY(cell.isWhite, px, py);
+            selectPieceatXY(px, py);
+        }
 	} else {
 		// рисуем обычную шашки
-		context.drawImage(piece, px , py);
+		cell.isKing ?  drawKingPieceatXY(cell.isWhite, px, py) : drawPieceatXY(cell.isWhite, px, py);
 	}
 }
 
+/**
+ * Рисует шашку в указанных координатах
+ * @param cell - объект шашки, содержит инфу о ЦВЕТЕ, о ДАМКЕ, о ВЫДЕЛЕННОЙ шашке
+ * @param x - X координата верхнего левого угла клетки в пикселах
+ * @param y - Y координата верхнего левого угла клетки в пикселах
+ */
 function drawPieceXY(cell, x, y){
 	px = x ? x : 0;
 	py = y ? y : 0;
 	
-	piece = cell.isWhite ? images.green : images.blue;
-	context.drawImage(piece, px , py);
-	
+    cell.isKing ?  drawKingPieceatXY(cell.isWhite, px, py) : drawPieceatXY(cell.isWhite, px, py);
+
 	if (cell.isSelected) {
 		// обводим шашку
-		context.beginPath();
-		r = CELL_SIZE / 2 - 1;
-		context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
-		context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
-		context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
-		context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
-		context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
-		context.closePath();
-		context.strokeStyle = SELECTION_COLOR;
-		context.stroke();		
+        selectPieceatXY(px, py);
 	}
 }
 
+/**
+ * Рисует ДАМКУ в указанных координатах
+ * @param isWhite - цвет дамки (true, false) - черная, белая
+ * @param x - X координата верхнего левого угла клетки в пикселах
+ * @param y - Y координата верхнего левого угла клетки в пикселах
+ */
+function drawKingPieceatXY(isWhite, x, y){
+	px = x ? x : 0;
+	py = y ? y : 0;
+
+    drawPieceatXY(isWhite, px, py);
+
+    r = CELL_SIZE / 2;
+
+    context.strokeStyle = '#ffff00';
+
+    context.beginPath();
+    context.lineWidth = 10;
+    context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, 20, 0, Math.PI * 2, false);
+    context.closePath();
+    context.stroke();
+
+    context.strokeStyle = 'black';
+
+    context.lineWidth = 1;
+}
+
+/**
+ * Рисует фишку в указанных координатах
+ * @param isWhite - цвет шашки (true, false) - черная, белая
+ * @param x - X координата верхнего левого угла клетки в пикселах
+ * @param y - Y координата верхнего левого угла клетки в пикселах
+ */
+function drawPieceatXY(isWhite, x, y){
+	px = x ? x : 0;
+	py = y ? y : 0;
+
+	color = isWhite ? '#00ff00' : '#5786cf';
+
+    // обводим шашку
+    r = CELL_SIZE / 2;
+
+    context.strokeStyle = 'black';
+
+    context.beginPath();
+    context.lineWidth = 4;
+    context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r-14, 0, Math.PI * 2, false);
+    context.closePath();
+    context.stroke();
+
+    context.beginPath();
+    context.lineWidth = 2;
+    context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r-2, 0, Math.PI * 2, false);
+    context.closePath();
+    context.stroke();
+
+    context.beginPath();
+    context.lineWidth = 10;
+    context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r-8, 0, Math.PI * 2, false);
+    context.strokeStyle = color;
+    context.closePath();
+    context.stroke();
+
+    context.lineWidth = 1;
+}
+
+/**
+ * Обводит фишку как текущую
+ * @param px - X координата верхнего левого угла клетки в пикселах
+ * @param py - Y координата верхнего левого угла клетки в пикселах
+ */
+function selectPieceatXY(px, py) {
+    context.beginPath();
+    r = CELL_SIZE / 2 - 1;
+    context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+    context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+    context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+    context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+    context.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, r++, 0, Math.PI * 2, false);
+    context.closePath();
+    context.strokeStyle = SELECTION_COLOR;
+    context.stroke();
+}
+
+/**
+ * Показывает возможные ходы шашки на поле
+ * @param currentMoves - структура дерево ходов шашки
+ */
 function getRecMoves (currentMoves) {
     if (currentMoves && currentMoves.length > 0) {
         for (k in currentMoves) {
 
             if (currentMoves[k].moves.length > 0) {
+                // двигаемся по ветке ходов
                 getRecMoves(currentMoves[k].moves);
             } else {
+                // остановились на листе, раскрашиваем его
                 fillAvaibleMove(currentMoves[k].x, currentMoves[k].y)
             }
         }
     }
 }
 
+/**
+ * Подсвечивает указанное поле как доступное для хода
+ * @param x - координата по оси абсцисс [0;7]
+ * @param y - координата по оси ординат [0;7]
+ */
 function fillAvaibleMove(x, y) {
     context.beginPath();
     context.strokeStyle = "yellow";
@@ -239,29 +374,33 @@ function fillAvaibleMove(x, y) {
     context.lineWidth = 1;
 }
 
+/**
+ * Событие при нажатии на поле мышью или пальцем
+ * @param e - событие браузера
+ */
 function onStart(e) {
 	if (e.touches) {
-		// Touch event
-		coords = getCoords(e.touches[0]); // Get info for finger #1
+		// координаты пальца
+		coords = getCoords(e.touches[0]);
 	} else {
-		// Mouse event
+		// координаты мыши
 		coords = getCoords(e);
 	}
 	last_coords = coords;
 
+    // высчитываем координаты относительные и относительно доски попадания мыши или пальца
 	diff_coords = {	x : coords.x - Math.floor(coords.x / CELL_SIZE) * CELL_SIZE, 
 					y : coords.y - Math.floor(coords.y / CELL_SIZE) * CELL_SIZE};
 	diff_board_coords = {	x : Math.floor(coords.x / CELL_SIZE), 
 							y : Math.floor(coords.y / CELL_SIZE)};
 
-    //$('#info .event').text($('#info .event').text() + '| ' + e.type);
-
-	// проверка на попадание в шашку
-	if (isHitChecker()) {
+	// проверка на попадание в окружность шашки
+	if (isHitChecker(diff_coords.x, diff_coords.y)) {
 		
 		// получаем выбранную шашку
 		for (i in pieces) {
-            // убираем выделение с других шашек
+
+            // убираем выделение с других остальных шашек
 			if (pieces[i].isSelected) {
 				pieces[i].isSelected = false;
 			}
@@ -269,10 +408,14 @@ function onStart(e) {
 			if (pieces[i].x == diff_board_coords.x && pieces[i].y == diff_board_coords.y
                 && (whiteTurn == pieces[i].isWhite))
             {
+                // если совпали координаты мыши и шашки и нужный ход
+                // шашка становится выделенной
+                
 				isSelected = i;
 				pieces[i].isSelected = true;
 
                 // получаем доступные ходы для шашки
+                // TODO: заменить передачу координат на передачу объекта ШАШКА
                 avaibleMoves = getAvaibleMoves({x : pieces[i].x, y : pieces[i].y, isWhite: pieces[i].isWhite});
 
                 // рисуем доступные ходы
@@ -289,40 +432,75 @@ function onStart(e) {
         }
         */
     }
-	
+
+    //drawNewPieceXY(coords.x - diff_coords.x, coords.y - diff_coords.y);
+
 	return false;
 }
 
-// Called whenever cursor position changes after drawing has started
+/**
+ * Событие при отпускании фишки мышью или пальцем
+ * @param e - событие браузера
+ */
 function onStop(e) {
 	e.preventDefault();
-	
+
+    // если до этого было перетаскивание фишки
 	if (touching) {
 		touching = false;
 
+        // если была выбрана фишка
 		if (isSelected >=0 ) {
-			
 			new_x = Math.ceil(last_coords.x / CELL_SIZE) - 1;
-			if (new_x > 7) new_x = 7;
+
+            // получаем новые координаты на доске в месте отпускания фишки
+            if (new_x > 7) new_x = 7;
 			if (new_x < 0) new_x = 0;
 			
 			new_y = Math.ceil(last_coords.y / CELL_SIZE) - 1;
 			if (new_y > 7) new_y = 7;
 			if (new_y < 0) new_y = 0;
 
-			// переместили шашку
+			// переместили шашку, координаты различаются
 			if (pieces[isSelected].x != new_x || pieces[isSelected].y != new_y) {
-                if (canPieceMove(avaibleMoves, new_x, new_y)) {
 
-                    removeBeatenPieces(avaibleMoves, new_x, new_y);
+                // формируем маршрут piecePath
+                piecePath = [];
+                if (canPieceMove(avaibleMoves, new_x, new_y)) {
+                    // если таки мы можем перейти в новое место
+
+                    // подсчитываем количество взятых фишек
+                    countBeatenPieces = 0;
+                    removeBeatenPieces(avaibleMoves, piecePath, 0, new_x, new_y);
+
+                    // обязаны ли мы бить?
+                    if (mustBeat > 0) {
+                        if (countBeatenPieces == 0) {
+                            log.add('Недопустимый ход, Вы обязаны бить!');
+                            refresh();
+                            return false;
+                        }
+                    }
+
+                    // все ништяк, меняем координаты шашки
                     pieces[isSelected].x = new_x;
                     pieces[isSelected].y = new_y;
 
+                    // снимаем выделение, проверяем на дамку
                     pieces[isSelected].isSelected = false;
                     pieces[isSelected].isKing = isKing(pieces[isSelected]);
                     isSelected = -1;
 
+                    // меняем ход
                     whiteTurn = !whiteTurn;
+
+                    // определяем должен ли бить следующий игрок
+                    mustBeat = isMustBeat(whiteTurn);
+
+                    log.add('Ход ' + (whiteTurn ? 'белых' : 'черных') +
+                            ((mustBeat > 0) ? ' (обязаны бить '+ mustBeat +')' : '')
+                    );
+
                 }
 			}
 
@@ -332,15 +510,32 @@ function onStop(e) {
 	return false;
 }
 
+/**
+ * Проверяет может ли фишка переместиться по указанному дереву пути в нужные координаты
+ * попутно формирую массив-путь шашки
+ * @param currentMoves - рассчитанная структура-"дерево" пути, содержащее все возможные ходы и взятия
+ * @param x - координата X куда нужно прийти [0;7]
+ * @param y - координата Y куда нужно прийти [0;7]
+ */
 function canPieceMove(currentMoves, x, y) {
     if (currentMoves && currentMoves.length > 0) {
         for (k in currentMoves) {
 
+            // формируем маршрут
+            piecePath.push({x: currentMoves[k].x, y: currentMoves[k].y});
+
             if (currentMoves[k].moves.length > 0) {
+                // можем двигаться дальше по ветке
                 return canPieceMove(currentMoves[k].moves, x, y);
             } else {
+                // крайний лист дерева
+
                 if (currentMoves[k].x == x && currentMoves[k].y == y) {
+                    // если координаты совпали то УРА
                     return currentMoves[k];
+                } else {
+                    // возвращаемся обратно, тут тупик
+                    piecePath.pop();
                 }
             }
         }
@@ -348,22 +543,46 @@ function canPieceMove(currentMoves, x, y) {
     return false;
 }
 
-function removeBeatenPieces(currentMoves, x, y) {
+/**
+ * Убирает побитые фишки
+ * @param currentMoves - рекурсивный массив из ходов
+ * @param currentPath - текущий ПРОСЧИТАННЫЙ путь шашки
+ * @param x - новая X координата
+ * @param y - новая Y координата
+ */
+function removeBeatenPieces(currentMoves, currentPath, currentPathPosition, x, y) {
     if (currentMoves && currentMoves.length > 0) {
         for (k in currentMoves) {
-            if (currentMoves[k].beat) {
-                piece_key = getPieceIndexAt(currentMoves[k].beat.x, currentMoves[k].beat.y);
-                pieces[piece_key].isActive = false;
-                pieces[piece_key].x = -1;
-                pieces[piece_key].y = -1;
-            }
-            if (currentMoves[k].moves.length > 0) {
-                return removeBeatenPieces(currentMoves[k].moves, x, y);
+            if (currentMoves[k].x == currentPath[currentPathPosition].x
+             && currentMoves[k].y == currentPath[currentPathPosition].y)
+            {
+                // проверка на то, что текущая координата из возможных координат
+                // лежит на маршруте движения фишки
+
+                if (currentMoves[k].beat) {
+                    // бьём фишку на пути
+                    piece_key = getPieceIndexAt(currentMoves[k].beat.x, currentMoves[k].beat.y);
+                    pieces[piece_key].isActive = false;
+                    pieces[piece_key].x = -1;
+                    pieces[piece_key].y = -1;
+                    countBeatenPieces++;
+                }
+                if (currentMoves[k].moves.length > 0) {
+                    // можем ли мы идти дальше?
+                    return removeBeatenPieces(currentMoves[k].moves, currentPath, ++currentPathPosition, x, y);
+                }
+            } else {
+                continue;
             }
         }
     }
 }
 
+/**
+ * Возвращает номер шашки в массиве по координатам или null если шашка не найдена
+ * @param x - координата по оси абсцисс [0;7]
+ * @param y - координата по оси ординат [0;7]
+ */
 function getPieceIndexAt(x, y) {
     for (i = 0; i < 24; i++){
         if (pieces[i].x == x && pieces[i].y == y) {
@@ -373,28 +592,38 @@ function getPieceIndexAt(x, y) {
     return null;
 }
 
-
+/**
+ * Событие, вызываемое при перемещении мыши или пальца
+ * @param e - событие браузера
+ */
 function onMove(e) {
 	if (e.touches) {
-		// Touch Enabled
-		coords = getCoords(e.touches[0]); // Get info for finger i
+        // координаты пальца
+		coords = getCoords(e.touches[0]);
 	} else {
+        // координаты мыши
 		coords = getCoords(e);
 	}
 
+    // обновляем переменную с последними координатами мыши
 	last_coords = coords;
 
+    // отображаем информацию о курсоре
 	$('#info .x').text('X: ' + coords.x); $('#info .cx').text('CX: ' + Math.ceil(coords.x / CELL_SIZE));
 	$('#info .y').text('Y: ' + coords.y); $('#info .cy').text('CY: ' + Math.ceil(coords.y / CELL_SIZE));
 
-
 	if (touching) {
+        // при нажатой мыши (перемещению пальцем)
+
+        // получаем координаты рисования перемещаемой шашки
 		checker_coords = {	x : coords.x - diff_coords.x,
 							y : coords.y - diff_coords.y};
 
+        // перерисовываем доску
 		refresh();
 
 		if (isSelected >= 0) {
+            // рисуем перемещаемую шашку там где курсор
             pieces[isSelected].isSelected = true;
 			drawPieceXY(pieces[isSelected], checker_coords.x, checker_coords.y);
 		}
@@ -403,49 +632,100 @@ function onMove(e) {
 	return false;
 }
 
+/**
+ * Определяет должен ли бить игрок (находятся ли чужие фишки под боем)
+ * @param whiteCells - TRUE|FALSE - белые или черные шашки
+ */
+function isMustBeat(whiteCells) {
+    result = 0;
+
+    for (k in pieces) {
+
+        // если цвет текущей шашки отличается от нужного нам цвета то идём дальше
+        if (pieces[k].isWhite != whiteCells) {
+            continue;
+        }
+
+        // NE
+        if (isValidCell(pieces[k].x + 2, pieces[k].y - 2) && ! isPieceHere(pieces[k].x + 2, pieces[k].y - 2)
+                && isPieceHere(pieces[k].x + 1, pieces[k].y - 1) == (whiteCells ? 'black' : 'white'))
+        {
+            result++;
+        }
+
+        // SE
+        if (isValidCell(pieces[k].x + 2, pieces[k].y + 2) && ! isPieceHere(pieces[k].x + 2, pieces[k].y + 2)
+                && isPieceHere(pieces[k].x + 1, pieces[k].y + 1) == (whiteCells ? 'black' : 'white'))
+        {
+            result++;
+        }
+
+        // SW
+        if (isValidCell(pieces[k].x - 2, pieces[k].y + 2) && ! isPieceHere(pieces[k].x - 2, pieces[k].y + 2)
+                && isPieceHere(pieces[k].x - 1, pieces[k].y + 1) == (whiteCells ? 'black' : 'white'))
+        {
+            result++;
+        }
+
+        // NW
+        if (isValidCell(pieces[k].x - 2, pieces[k].y - 2) && ! isPieceHere(pieces[k].x - 2, pieces[k].y - 2)
+                && isPieceHere(pieces[k].x - 1, pieces[k].y - 1) == (whiteCells ? 'black' : 'white'))
+        {
+            result++;
+        }
+    }
+
+    return result;
+}
+
+/**
+ * Рассчитывает все возможные ходы и взятия для указанной шашки
+ * @param cell - объект шашка
+ */
 function getAvaibleMoves(cell) {
 
+    // возможные клетки для перемещения на текущем "прыге"
     var thisTurnMoves = [];
-    
+
+    // Нету предыдущей клетки, откуда прыгали, поэтому проверка обычных ходов без взятия
     if (! cell.parent_x && ! cell.parent_y) {
-        // Проверяем доступные простые ходы
         if (cell.isWhite) {
-            if (cell.y >= 1 && cell.x <= 6 && ! isPieceHere(cell.x + 1, cell.y - 1)) {
-                var pMove = {
+            // NE
+            if (isValidCell(cell.x + 1, cell.y - 1) && ! isPieceHere(cell.x + 1, cell.y - 1)) {
+                thisTurnMoves.push({
                     x: cell.x + 1,
                     y: cell.y - 1,
                     moves:[]
-                };
-                thisTurnMoves.push(pMove);
+                });
             }
-            if (cell.y >= 1 && cell.x >= 1 && ! isPieceHere(cell.x - 1, cell.y - 1)) {
-                var pMove = {
+            // NW
+            if (isValidCell(cell.x - 1, cell.y - 1) && ! isPieceHere(cell.x - 1, cell.y - 1)) {
+                thisTurnMoves.push({
                     x: cell.x - 1,
                     y: cell.y - 1,
                     moves:[]
-                };
-                thisTurnMoves.push(pMove);
+                });
             }
         } else {
-            if (cell.y <= 6 && cell.x <= 6 && ! isPieceHere(cell.x + 1, cell.y + 1)) {
-                var pMove = {
+            // SE
+            if (isValidCell(cell.x + 1, cell.y + 1) && ! isPieceHere(cell.x + 1, cell.y + 1)) {
+                thisTurnMoves.push({
                     x: cell.x + 1,
                     y: cell.y + 1,
                     moves:[]
-                };
-                thisTurnMoves.push(pMove);
-            }
-            if (cell.y <= 6 && cell.x >= 1 && ! isPieceHere(cell.x - 1, cell.y + 1)) {
-                var pMove = {x: 0, y: 0, moves:[]};
-                var pMove = {
+                });            }
+            // SW
+            if (isValidCell(cell.x - 1, cell.y + 1) && ! isPieceHere(cell.x - 1, cell.y + 1)) {
+                thisTurnMoves.push({
                     x: cell.x - 1,
                     y: cell.y + 1,
                     moves:[]
-                };
-                thisTurnMoves.push(pMove);
+                });
             }
         }
     }
+
+    // TODO: FIXME: механизм проверки шашек и дамок на взятие
 
     // взятие NE
     if (cell.y >= 2 && cell.x <= 5
@@ -526,13 +806,22 @@ function getAvaibleMoves(cell) {
 
     for (i in thisTurnMoves) {
         if (thisTurnMoves[i].beat) {
-            thisTurnMoves[i].moves = getAvaibleMoves({x: thisTurnMoves[i].x, y: thisTurnMoves[i].y, isWhite: cell.isWhite, parent_x : cell.x, parent_y: cell.y});
+            thisTurnMoves[i].moves = getAvaibleMoves({
+                x: thisTurnMoves[i].x,
+                y: thisTurnMoves[i].y,
+                isWhite: cell.isWhite,
+                parent_x : cell.x,
+                parent_y: cell.y
+            });
         }
     }
     return thisTurnMoves;
 }
 
-// Определяет является ли шашка дамкой
+/**
+ * Определяет является ли шашка дамкой
+ * @param cell - объект шашка
+ */
 function isKing(cell) {
     if (cell.isKing) {
         return true;
@@ -547,16 +836,26 @@ function isKing(cell) {
 
 }
 
-// Draw a line on the canvas from (s)tart to (e)nd
+/**
+ * Рисует линию по двум точкам
+ * @param sX - X координата 1-й точки
+ * @param sY - Y координата 1-й точки
+ * @param eX - X координата 2-й точки
+ * @param eY - Y координата 2-й точки
+ */
 function drawLine(sX, sY, eX, eY) {
 	context.moveTo(sX, sY);
 	context.lineTo(eX, eY);
 	return { x: eX, y: eY };
 }
 
-// Get the coordinates for a mouse or touch event
+/**
+ * Возвращает координаты мыши или пальца относительно доски в пикселях, кроссбраузерно
+ * @param e - событие браузера
+ */
 function getCoords(e) {
-	if (e.pageX == null && e.clientX != null ) { 
+	if (e.pageX == null && e.clientX != null ) {
+        // IE fix
 		var html = document.documentElement
 		var body = document.body
 	
@@ -564,26 +863,29 @@ function getCoords(e) {
 		e.pageY = e.clientY + (html && html.scrollTop || body && body.scrollTop || 0) - (html.clientTop || 0)
 	}
 	return { x: e.pageX - canvas.offsetLeft, y: e.pageY - canvas.offsetTop };
-	
-	/*if (e.offsetX) {
-		return { x: e.offsetX, y: e.offsetY };
-	}
-	else if (e.layerX) {
-		return { x: e.layerX, y: e.layerY };
-	}
-	else {
-		return { x: e.pageX - canvas.offsetLeft, y: e.pageY - canvas.offsetTop };
-	}*/
 }
 
-function isHitChecker() {
-	return Math.sqrt(Math.pow(diff_coords.x - (CELL_SIZE / 2), 2) + Math.pow(diff_coords.y - (CELL_SIZE / 2), 2)) <= (CELL_SIZE / 2);
+/**
+ * Проверяет попадание координат в круг с радиусом CELL_SIZE
+ * @param x - координата по оси абсцисс [0;7]
+ * @param y - координата по оси ординат [0;7]
+ */
+function isHitChecker(x, y) {
+	return Math.sqrt(Math.pow(x - (CELL_SIZE / 2), 2) + Math.pow(y - (CELL_SIZE / 2), 2)) <= (CELL_SIZE / 2);
 }
 
-function canMove(piece, x, y) {
-    return true;
-}
+/**
+ * Проверяет указанную клетку на наличие в ней фишки определенного цвета
+ * Возвращает 'white' или 'black' при наличии шашки соответствующего цвета
+ * или false если клетка пустая или координаты не принадлежат доске
+ * @param x - координата по оси абсцисс [0;7]
+ * @param y - координата по оси ординат [0;7]
+ */
 function isPieceHere(x, y) {
+    if (! isValidCell(x, y)) {
+        return false;
+    }
+    
     for (i in pieces) {
         if (pieces[i].x == x && pieces[i].y == y) {
             return pieces[i].isWhite ? 'white' : 'black';
@@ -592,24 +894,46 @@ function isPieceHere(x, y) {
     return false;
 }
 
+/**
+ * Проверяет координаты на принадлежность доске и возвращает булевское значение
+ * @param x - координата по оси абсцисс [0;7]
+ * @param y - координата по оси ординат [0;7]
+ */
+function isValidCell(x, y) {
+    return (x >= 0 && x <= 7 && y >= 0 && y <= 7) ? true : false;
+}
+
 		</script>
 		<style type="text/css" media="screen">
 			body {
 				font: 14px Verdana;
 			}
 			#wrap {
-				width: 768px;
+				/*width: 768px;*/
 				max-height: 1024px;
 				overflow: hidden;
+                position: relative;
 			}
 			#canv_wrap {
 				border: 1px solid #777;
 				width: 640px;
-				margin: 0px auto 0px;
+				margin: 0px 0px 0px 64px;
 			}
 			#info {
 				position:absolute;
 			}
+            #log_info {
+                position: absolute;
+                top: 0px;
+                left: 740px;
+                width: 300px;
+                height: 500px;
+                border: 1px solid black;
+                background-color: #ededed;
+                padding: 10px;
+                overflow-x: hidden;
+                overflow-y: scroll;
+            }
 		</style>
 	</head>
 	<body>
@@ -628,7 +952,9 @@ function isPieceHere(x, y) {
 				<canvas id="canv" width="640" height="640"></canvas>
 			</div>
 
-			
+			<div id="log_info">
+                
+			</div>
 		
 		</div>
 	</body>
