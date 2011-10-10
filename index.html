@@ -59,6 +59,9 @@ var Logger = function(output_id) {
         this.output.innerHTML +=  text + '<br />';
         this.output.scrollTop = this.output.scrollHeight;
     }
+	this.clear = function() {
+		this.output.innerHTML = '';
+	}
 }
 			
 window.onload = function(){
@@ -112,10 +115,11 @@ function init() {
 		
 		canvas.ontouchstart = onStart;
 		canvas.ontouchend = onStop;
-		canvas.ontouchmove = onMove;
+		canvas.ontouchmove = onMove; 
 
         log = new Logger('log_info');
-        newGame();
+        
+		newGame();
 		refresh();
         log.add('Начата новая игра');
         log.add('Ход белых');
@@ -140,6 +144,10 @@ function newGame() {
 		new Cell(1, 4, 'black'), new Cell(1, 6, 'black'),
 		new Cell(2, 1, 'black'), new Cell(2, 3, 'black'),
 		new Cell(2, 5, 'black'), new Cell(2, 7, 'black')];
+	
+	whiteTurn = true;
+	mustBeat = 0;
+	
 }
 
 /**
@@ -490,6 +498,23 @@ function onStop(e) {
                     pieces[isSelected].isSelected = false;
                     pieces[isSelected].isKing = isKing(pieces[isSelected]);
                     isSelected = -1;
+
+					// Победа какого-либо игрока
+					if (victory = checkVictory()) {
+						log.add('Победа ' + (victory == 'white' ? 'белых' : 'черных') + '!');
+						
+						if (confirm('Начать заново?')) {
+							newGame();
+							refresh();
+							log.clear();
+							log.add('Начата новая игра');
+							log.add('Ход белых');							
+							return;
+						} else {
+							refresh();
+							return;
+						}
+					}
 
                     // меняем ход
                     whiteTurn = !whiteTurn;
@@ -902,6 +927,27 @@ function isPieceHere(x, y) {
  */
 function isValidCell(x, y) {
     return (x >= 0 && x <= 7 && y >= 0 && y <= 7) ? true : false;
+}
+
+/**
+ * Проверяет количество шашек и определяет победу
+ */
+function checkVictory() {
+	var count_black = count_white = 0;
+	
+	for (i in pieces) {
+		if (pieces[i].isActive) {
+			if (pieces[i].isWhite) {
+				count_white++;
+			} else {
+				count_black++;
+			}
+		}
+	}
+	
+	if (count_black == 0) return 'white';
+	if (count_white == 0) return 'black';
+	return false;
 }
 
 		</script>
