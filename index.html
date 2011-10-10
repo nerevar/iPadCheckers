@@ -476,7 +476,7 @@ function onStop(e) {
                     // обязаны ли мы бить?
                     if (mustBeat > 0) {
                         if (countBeatenPieces == 0) {
-                            log.add('Недопустимый ход, Вы обязаны бить!');
+                            log.add("Недопустимый ход, Вы обязаны бить!");
                             refresh();
                             return false;
                         }
@@ -713,7 +713,8 @@ function getAvaibleMoves(cell) {
                     x: cell.x + 1,
                     y: cell.y + 1,
                     moves:[]
-                });            }
+                });            
+			}
             // SW
             if (isValidCell(cell.x - 1, cell.y + 1) && ! isPieceHere(cell.x - 1, cell.y + 1)) {
                 thisTurnMoves.push({
@@ -730,7 +731,7 @@ function getAvaibleMoves(cell) {
     // взятие NE
     if (cell.y >= 2 && cell.x <= 5
         && (cell.x + 2 != cell.parent_x
-        && cell.y - 2 != cell.parent_y)
+			|| cell.y - 2 != cell.parent_y)
         && ((isPieceHere(cell.x + 1, cell.y - 1) == 'black' && cell.isWhite)
             || (isPieceHere(cell.x + 1, cell.y - 1) == 'white' && ! cell.isWhite))
         && ! isPieceHere(cell.x + 2, cell.y - 2))
