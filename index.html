@@ -4,6 +4,8 @@
 		<meta name="viewport" content="width=device-width, user-scalable=no">
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 		
+		<link href="favicon.ico" rel="shortcut icon" type="image/x-icon" />
+		
 		<title>HTML5 iPad Checkers</title>
 		
 		<script type="text/javascript" src="jquery.min.js"></script>
@@ -35,10 +37,10 @@ var isSelected = -1;
 /**
  * Объект шашка 
  */
-var Cell = function(y, x, kind) {
-	this.y = y;
+var Cell = function(x, y, kind, isKing) {
 	this.x = x;
-	this.isKing = false;
+	this.y = y;
+	this.isKing = isKing ? isKing : false;
 	this.isSelected = false;
 	this.isWhite = kind == 'black' ? false : true;
 	this.isBlack = kind == 'black' ? true : false;
@@ -131,23 +133,42 @@ function init() {
  */
 function newGame() {
 	pieces = [
-		new Cell(5, 0, 'white'), new Cell(5, 2, 'white'),
-		new Cell(5, 4, 'white'), new Cell(5, 6, 'white'),
-		new Cell(6, 1, 'white'), new Cell(6, 3, 'white'),
-		new Cell(6, 5, 'white'), new Cell(6, 7, 'white'),
-		new Cell(7, 0, 'white'), new Cell(7, 2, 'white'),
-		new Cell(7, 4, 'white'), new Cell(7, 6, 'white'),
+		new Cell(0, 5, 'white'), new Cell(2, 5, 'white'),
+		new Cell(4, 5, 'white'), new Cell(6, 5, 'white'),
+		new Cell(1, 6, 'white'), new Cell(3, 6, 'white'),
+		new Cell(5, 6, 'white'), new Cell(7, 6, 'white'),
+		new Cell(0, 7, 'white'), new Cell(2, 7, 'white'),
+		new Cell(4, 7, 'white'), new Cell(6, 7, 'white'),
 
-		new Cell(0, 1, 'black'), new Cell(0, 3, 'black'),
-		new Cell(0, 5, 'black'), new Cell(0, 7, 'black'),
-		new Cell(1, 0, 'black'), new Cell(1, 2, 'black'),
-		new Cell(1, 4, 'black'), new Cell(1, 6, 'black'),
-		new Cell(2, 1, 'black'), new Cell(2, 3, 'black'),
-		new Cell(2, 5, 'black'), new Cell(2, 7, 'black')];
+		new Cell(1, 0, 'black'), new Cell(3, 0, 'black'),
+		new Cell(5, 0, 'black'), new Cell(7, 0, 'black'),
+		new Cell(0, 1, 'black'), new Cell(2, 1, 'black'),
+		new Cell(4, 1, 'black'), new Cell(6, 1, 'black'),
+		new Cell(1, 2, 'black'), new Cell(3, 2, 'black'),
+		new Cell(5, 2, 'black'), new Cell(7, 2, 'black')];
 	
 	whiteTurn = true;
 	mustBeat = 0;
+}
+
+function newMyGame() {
+	pieces = [
+		new Cell(1, 0, 'white', true), /*new Cell(2, 5, 'white'),
+		new Cell(4, 5, 'white'), new Cell(0, 5, 'white'),
+		/*new Cell(6, 1, 'white'), new Cell(6, 3, 'white'),
+		new Cell(6, 5, 'white'), new Cell(6, 7, 'white'),
+		new Cell(7, 0, 'white'), new Cell(7, 2, 'white'),
+		new Cell(7, 4, 'white'), new Cell(7, 6, 'white'),*/
+
+		/*new Cell(0, 1, 'black'), new Cell(0, 3, 'black'),
+		new Cell(0, 5, 'black'), new Cell(0, 7, 'black'),
+		new Cell(1, 0, 'black'), new Cell(1, 2, 'black'),
+		new Cell(1, 4, 'black'), new Cell(1, 6, 'black'),*/
+		new Cell(3, 2, 'black'), new Cell(5, 4, 'black'),
+		new Cell(2, 5, 'black'), new Cell(5, 6, 'black')];
 	
+	whiteTurn = true;
+	mustBeat = 0;
 }
 
 /**
@@ -414,7 +435,7 @@ function onStart(e) {
 			}
             
 			if (pieces[i].x == diff_board_coords.x && pieces[i].y == diff_board_coords.y
-                && (whiteTurn == pieces[i].isWhite))
+                && (whiteTurn == pieces[i].isWhite) && pieces[i].isActive)
             {
                 // если совпали координаты мыши и шашки и нужный ход
                 // шашка становится выделенной
@@ -424,7 +445,12 @@ function onStart(e) {
 
                 // получаем доступные ходы для шашки
                 // TODO: заменить передачу координат на передачу объекта ШАШКА
-                avaibleMoves = getAvaibleMoves({x : pieces[i].x, y : pieces[i].y, isWhite: pieces[i].isWhite});
+				if (pieces[i].isKing) {
+					log.add('Ход дамки ['+ pieces[i].x +';'+ pieces[i].y +']');
+					avaibleMoves = getKingAvaibleMoves({x : pieces[i].x, y : pieces[i].y, isWhite: pieces[i].isWhite});
+				} else {
+					avaibleMoves = getPieceAvaibleMoves({x : pieces[i].x, y : pieces[i].y, isWhite: pieces[i].isWhite});
+				}
 
                 // рисуем доступные ходы
                 getRecMoves(avaibleMoves);
@@ -520,7 +546,7 @@ function onStop(e) {
                     whiteTurn = !whiteTurn;
 
                     // определяем должен ли бить следующий игрок
-                    mustBeat = isMustBeat(whiteTurn);
+                    mustBeat = isPieceMustBeat(whiteTurn);
 
                     log.add('Ход ' + (whiteTurn ? 'белых' : 'черных') +
                             ((mustBeat > 0) ? ' (обязаны бить '+ mustBeat +')' : '')
@@ -586,11 +612,10 @@ function removeBeatenPieces(currentMoves, currentPath, currentPathPosition, x, y
 
                 if (currentMoves[k].beat) {
                     // бьём фишку на пути
-                    piece_key = getPieceIndexAt(currentMoves[k].beat.x, currentMoves[k].beat.y);
-                    pieces[piece_key].isActive = false;
-                    pieces[piece_key].x = -1;
-                    pieces[piece_key].y = -1;
-                    countBeatenPieces++;
+                    if (piece_key = getPieceIndexAt(currentMoves[k].beat.x, currentMoves[k].beat.y)) {
+						pieces[piece_key].isActive = false;
+						countBeatenPieces++;
+					}
                 }
                 if (currentMoves[k].moves.length > 0) {
                     // можем ли мы идти дальше?
@@ -609,8 +634,8 @@ function removeBeatenPieces(currentMoves, currentPath, currentPathPosition, x, y
  * @param y - координата по оси ординат [0;7]
  */
 function getPieceIndexAt(x, y) {
-    for (i = 0; i < 24; i++){
-        if (pieces[i].x == x && pieces[i].y == y) {
+    for (i in pieces) {
+        if (pieces[i].x == x && pieces[i].y == y && pieces[i].isActive) {
             return i;
         }
     }
@@ -661,10 +686,15 @@ function onMove(e) {
  * Определяет должен ли бить игрок (находятся ли чужие фишки под боем)
  * @param whiteCells - TRUE|FALSE - белые или черные шашки
  */
-function isMustBeat(whiteCells) {
+function isPieceMustBeat(whiteCells) {
     result = 0;
 
     for (k in pieces) {
+
+        if (pieces[k].isActive == false) {
+            continue;
+        }
+
 
         // если цвет текущей шашки отличается от нужного нам цвета то идём дальше
         if (pieces[k].isWhite != whiteCells) {
@@ -707,7 +737,7 @@ function isMustBeat(whiteCells) {
  * Рассчитывает все возможные ходы и взятия для указанной шашки
  * @param cell - объект шашка
  */
-function getAvaibleMoves(cell) {
+function getPieceAvaibleMoves(cell) {
 
     // возможные клетки для перемещения на текущем "прыге"
     var thisTurnMoves = [];
@@ -750,8 +780,6 @@ function getAvaibleMoves(cell) {
             }
         }
     }
-
-    // TODO: FIXME: механизм проверки шашек и дамок на взятие
 
     // взятие NE
     if (cell.y >= 2 && cell.x <= 5
@@ -832,7 +860,7 @@ function getAvaibleMoves(cell) {
 
     for (i in thisTurnMoves) {
         if (thisTurnMoves[i].beat) {
-            thisTurnMoves[i].moves = getAvaibleMoves({
+            thisTurnMoves[i].moves = getPieceAvaibleMoves({
                 x: thisTurnMoves[i].x,
                 y: thisTurnMoves[i].y,
                 isWhite: cell.isWhite,
@@ -842,6 +870,264 @@ function getAvaibleMoves(cell) {
         }
     }
     return thisTurnMoves;
+}
+
+/**
+ * Рассчитывает все возможные ходы и взятия для указанной ДАМКА
+ * @param cell - объект шашка (ДАМКА)
+ */
+function getKingAvaibleMoves(cell) {
+
+    // возможные клетки для перемещения на текущем "прыге"
+    var thisTurnMoves = [];
+
+    // Нету предыдущей клетки, откуда прыгали, поэтому проверка обычных ходов без взятия
+	// для дамки проверяем сразу диагонали
+	if (! cell.parent_x && ! cell.parent_y) {
+		// NE
+		for (kx = cell.x + 1, ky = cell.y - 1; true ; kx++, ky--) {
+			if (isValidCell(kx, ky) && ! isPieceHere(kx, ky)) {
+				thisTurnMoves.push({
+					x: kx,
+					y: ky,
+					moves:[]
+				});
+			} else {
+				break;
+			}
+		}
+		// SE
+		for (kx = cell.x + 1, ky = cell.y + 1; true ; kx++, ky++) {
+			if (isValidCell(kx, ky) && ! isPieceHere(kx, ky)) {
+				thisTurnMoves.push({
+					x: kx,
+					y: ky,
+					moves:[]
+				});
+			} else {
+				break;
+			}
+		}	
+		// SW
+		for (kx = cell.x - 1, ky = cell.y + 1; true ; kx--, ky++) {
+			if (isValidCell(kx, ky) && ! isPieceHere(kx, ky)) {
+				thisTurnMoves.push({
+					x: kx,
+					y: ky,
+					moves:[]
+				});
+			} else {
+				break;
+			}
+		}	
+		// NW
+		for (kx = cell.x - 1, ky = cell.y - 1; true ; kx--, ky--) {
+			if (isValidCell(kx, ky) && ! isPieceHere(kx, ky)) {
+				thisTurnMoves.push({
+					x: kx,
+					y: ky,
+					moves:[]
+				});
+			} else {
+				break;
+			}
+		}			
+		
+    }
+
+	// Взятия
+	
+	// белые
+	if (cell.isWhite) {
+
+		// SE
+		mustGoOn = true;
+		for (kx = cell.x + 1, ky = cell.y + 1; mustGoOn ; kx++, ky++) {
+			if (!isValidCell(kx, ky)) {
+				// останавливаемся об стенку
+				mustGoOn = false;
+				break;				
+			}
+			
+			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'white') {
+				// останавливаемся об свою фишку
+				mustGoOn = false;
+				break;
+			}
+			
+			// нашли фишку врага на пути
+			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'black' 
+				&& (!cell.parent_direction || cell.parent_direction != 'SE') ) 
+			{
+				for (nx = kx + 1, ny = ky + 1; mustGoOn ; nx++, ny++) {
+					if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
+						thisTurnMoves.push({
+							x: nx,
+							y: ny,
+							moves:[],
+							beat: {
+								x: kx,
+								y: ky
+							}							
+						});
+					} else {
+						mustGoOn = false;
+						break;
+					}					
+				}
+				
+			}
+		}
+		
+		
+		// SW
+		mustGoOn = true;
+		for (kx = cell.x - 1, ky = cell.y + 1; mustGoOn ; kx--, ky++) {
+			if (!isValidCell(kx, ky)) {
+				// останавливаемся об стенку
+				mustGoOn = false;
+				break;				
+			}
+						
+			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'white') {
+				// останавливаемся об свою фишку
+				mustGoOn = false;
+				break;
+			}
+			
+			// нашли фишку врага на пути
+			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'black'
+				&& (!cell.parent_direction || cell.parent_direction != 'SW') ) 
+			{
+				for (nx = kx - 1, ny = ky + 1; mustGoOn ; nx--, ny++) {
+					if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
+						thisTurnMoves.push({
+							x: nx,
+							y: ny,
+							moves:[],
+							beat: {
+								x: kx,
+								y: ky
+							}							
+						});
+					} else {
+						mustGoOn = false;
+						break;
+					}					
+				}
+				
+			}
+		}
+
+
+		// NW
+		mustGoOn = true;
+		for (kx = cell.x - 1, ky = cell.y - 1; mustGoOn ; kx--, ky--) {
+			if (!isValidCell(kx, ky)) {
+				// останавливаемся об стенку
+				mustGoOn = false;
+				break;				
+			}
+			
+			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'white') {
+				// останавливаемся об свою фишку
+				mustGoOn = false;
+				break;
+			}
+			
+			// нашли фишку врага на пути
+			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'black'
+				&& (!cell.parent_direction || cell.parent_direction != 'NW') )  
+			{
+				for (nx = kx - 1, ny = ky - 1; mustGoOn ; nx--, ny--) {
+					if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
+						thisTurnMoves.push({
+							x: nx,
+							y: ny,
+							moves:[],
+							beat: {
+								x: kx,
+								y: ky
+							}							
+						});
+					} else {
+						mustGoOn = false;
+						break;
+					}					
+				}
+				
+			}
+		}
+		
+		
+		// NE
+		mustGoOn = true;
+		for (kx = cell.x + 1, ky = cell.y - 1; mustGoOn ; kx++, ky--) {
+			if (!isValidCell(kx, ky)) {
+				// останавливаемся об стенку
+				mustGoOn = false;
+				break;				
+			}
+			
+			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'white') {
+				// останавливаемся об свою фишку
+				mustGoOn = false;
+				break;
+			}
+			
+			// нашли фишку врага на пути
+			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'black'
+				&& (!cell.parent_direction || cell.parent_direction != 'NE') ) 
+			{
+				for (nx = kx + 1, ny = ky - 1; mustGoOn ; nx++, ny--) {
+					if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
+						thisTurnMoves.push({
+							x: nx,
+							y: ny,
+							moves:[],
+							beat: {
+								x: kx,
+								y: ky
+							}							
+						});
+					} else {
+						mustGoOn = false;
+						break;
+					}					
+				}
+				
+			}
+		}
+
+
+	}
+
+
+    for (i in thisTurnMoves) {
+        if (thisTurnMoves[i].beat) {
+            thisTurnMoves[i].moves = getKingAvaibleMoves({
+                x: thisTurnMoves[i].x,
+                y: thisTurnMoves[i].y,
+                isWhite: cell.isWhite,
+                parent_x : cell.x,
+                parent_y: cell.y,
+				parent_direction : getDirection({x: cell.x, y:cell.y}, {x: thisTurnMoves[i].x, y: thisTurnMoves[i].y})
+            });
+        }
+    }
+    return thisTurnMoves;
+}
+
+/**
+ * Возвращает направление между двумя шашками:
+ * NE, SE, SW, NW
+ * от второй шашке к первой
+ */
+function getDirection(cell1, cell2) {
+	if (cell2.x > cell1.x && cell2.y > cell1.y) return 'NW';
+	if (cell2.x < cell1.x && cell2.y > cell1.y) return 'NE';
+	if (cell2.x < cell1.x && cell2.y < cell1.y) return 'SE';
+	if (cell2.x > cell1.x && cell2.y < cell1.y) return 'SW';
 }
 
 /**
@@ -913,7 +1199,7 @@ function isPieceHere(x, y) {
     }
     
     for (i in pieces) {
-        if (pieces[i].x == x && pieces[i].y == y) {
+        if (pieces[i].x == x && pieces[i].y == y && pieces[i].isActive) {
             return pieces[i].isWhite ? 'white' : 'black';
         }
     }
