@@ -122,7 +122,7 @@ function init() {
 
         log = new Logger('log_info');
         
-		newGame();
+		newMyGame();
 		refresh();
         log.add('Начата новая игра');
         log.add('Ход белых');
@@ -578,18 +578,19 @@ function canPieceMove(currentMoves, x, y) {
 
             if (currentMoves[k].moves.length > 0) {
                 // можем двигаться дальше по ветке
-                return canPieceMove(currentMoves[k].moves, x, y);
+                if (canPieceMove(currentMoves[k].moves, x, y)) {
+					return true;
+				}
             } else {
                 // крайний лист дерева
-
                 if (currentMoves[k].x == x && currentMoves[k].y == y) {
                     // если координаты совпали то УРА
                     return currentMoves[k];
-                } else {
-                    // возвращаемся обратно, тут тупик
-                    piecePath.pop();
                 }
+                
             }
+			
+			piecePath.pop();
         }
     }
     return false;
@@ -838,8 +839,6 @@ function canBeatAtDirection(cell, direction) {
 function isPieceMustBeat(whiteCells) {
     result = 0;
 	
-	whiteCells = whiteCells ? whiteCells : true;
-
     for (k in pieces) {
 
         if (pieces[k].isActive == false) {
@@ -1064,171 +1063,168 @@ function getKingAvaibleMoves(cell) {
     }
 
 	// Взятия
-	
-	// белые
-	if (cell.isWhite) {
 
-		// SE
-		mustGoOn = true;
-		for (kx = cell.x + 1, ky = cell.y + 1; mustGoOn ; kx++, ky++) {
-			if (!isValidCell(kx, ky)) {
-				// останавливаемся об стенку
-				mustGoOn = false;
-				break;				
-			}
-			
-			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'white') {
-				// останавливаемся об свою фишку
-				mustGoOn = false;
-				break;
-			}
-			
-			// нашли фишку врага на пути
-			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'black' 
-				&& (!cell.parent_direction || cell.parent_direction != 'SE') ) 
-			{
-				for (nx = kx + 1, ny = ky + 1; mustGoOn ; nx++, ny++) {
-					if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
-						thisTurnMoves.push({
-							x: nx,
-							y: ny,
-							moves:[],
-							beat: {
-								x: kx,
-								y: ky
-							}							
-						});
-					} else {
-						mustGoOn = false;
-						break;
-					}					
-				}
-				
-			}
-		}
-		
-		
-		// SW
-		mustGoOn = true;
-		for (kx = cell.x - 1, ky = cell.y + 1; mustGoOn ; kx--, ky++) {
-			if (!isValidCell(kx, ky)) {
-				// останавливаемся об стенку
-				mustGoOn = false;
-				break;				
-			}
-						
-			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'white') {
-				// останавливаемся об свою фишку
-				mustGoOn = false;
-				break;
-			}
-			
-			// нашли фишку врага на пути
-			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'black'
-				&& (!cell.parent_direction || cell.parent_direction != 'SW') ) 
-			{
-				for (nx = kx - 1, ny = ky + 1; mustGoOn ; nx--, ny++) {
-					if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
-						thisTurnMoves.push({
-							x: nx,
-							y: ny,
-							moves:[],
-							beat: {
-								x: kx,
-								y: ky
-							}							
-						});
-					} else {
-						mustGoOn = false;
-						break;
-					}					
-				}
-				
-			}
+	// SE
+	mustGoOn = true;
+	for (kx = cell.x + 1, ky = cell.y + 1; mustGoOn ; kx++, ky++) {
+		if (!isValidCell(kx, ky)) {
+			// останавливаемся об стенку
+			mustGoOn = false;
+			break;				
 		}
 
-
-		// NW
-		mustGoOn = true;
-		for (kx = cell.x - 1, ky = cell.y - 1; mustGoOn ; kx--, ky--) {
-			if (!isValidCell(kx, ky)) {
-				// останавливаемся об стенку
-				mustGoOn = false;
-				break;				
-			}
-			
-			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'white') {
-				// останавливаемся об свою фишку
-				mustGoOn = false;
-				break;
-			}
-			
-			// нашли фишку врага на пути
-			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'black'
-				&& (!cell.parent_direction || cell.parent_direction != 'NW') )  
-			{
-				for (nx = kx - 1, ny = ky - 1; mustGoOn ; nx--, ny--) {
-					if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
-						thisTurnMoves.push({
-							x: nx,
-							y: ny,
-							moves:[],
-							beat: {
-								x: kx,
-								y: ky
-							}							
-						});
-					} else {
-						mustGoOn = false;
-						break;
-					}					
-				}
-				
-			}
-		}
-		
-		
-		// NE
-		mustGoOn = true;
-		for (kx = cell.x + 1, ky = cell.y - 1; mustGoOn ; kx++, ky--) {
-			if (!isValidCell(kx, ky)) {
-				// останавливаемся об стенку
-				mustGoOn = false;
-				break;				
-			}
-			
-			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'white') {
-				// останавливаемся об свою фишку
-				mustGoOn = false;
-				break;
-			}
-			
-			// нашли фишку врага на пути
-			if (isValidCell(kx, ky) && isPieceHere(kx, ky) == 'black'
-				&& (!cell.parent_direction || cell.parent_direction != 'NE') ) 
-			{
-				for (nx = kx + 1, ny = ky - 1; mustGoOn ; nx++, ny--) {
-					if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
-						thisTurnMoves.push({
-							x: nx,
-							y: ny,
-							moves:[],
-							beat: {
-								x: kx,
-								y: ky
-							}							
-						});
-					} else {
-						mustGoOn = false;
-						break;
-					}					
-				}
-				
-			}
+		if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'white' : 'black')) {
+			// останавливаемся об свою фишку
+			mustGoOn = false;
+			break;
 		}
 
+		// нашли фишку врага на пути
+		if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'black' : 'white') 
+			&& (!cell.parent_direction || cell.parent_direction != 'SE') ) 
+		{
+			for (nx = kx + 1, ny = ky + 1; mustGoOn ; nx++, ny++) {
+				if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
+					thisTurnMoves.push({
+						x: nx,
+						y: ny,
+						moves:[],
+						beat: {
+							x: kx,
+							y: ky
+						}							
+					});
+				} else {
+					mustGoOn = false;
+					break;
+				}					
+			}
 
+		}
 	}
+
+
+	// SW
+	mustGoOn = true;
+	for (kx = cell.x - 1, ky = cell.y + 1; mustGoOn ; kx--, ky++) {
+		if (!isValidCell(kx, ky)) {
+			// останавливаемся об стенку
+			mustGoOn = false;
+			break;				
+		}
+
+		if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'white' : 'black')) {
+			// останавливаемся об свою фишку
+			mustGoOn = false;
+			break;
+		}
+
+		// нашли фишку врага на пути
+		if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'black' : 'white')
+			&& (!cell.parent_direction || cell.parent_direction != 'SW') ) 
+		{
+			for (nx = kx - 1, ny = ky + 1; mustGoOn ; nx--, ny++) {
+				if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
+					thisTurnMoves.push({
+						x: nx,
+						y: ny,
+						moves:[],
+						beat: {
+							x: kx,
+							y: ky
+						}							
+					});
+				} else {
+					mustGoOn = false;
+					break;
+				}					
+			}
+
+		}
+	}
+
+
+	// NW
+	mustGoOn = true;
+	for (kx = cell.x - 1, ky = cell.y - 1; mustGoOn ; kx--, ky--) {
+		if (!isValidCell(kx, ky)) {
+			// останавливаемся об стенку
+			mustGoOn = false;
+			break;				
+		}
+
+		if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'white' : 'black')) {
+			// останавливаемся об свою фишку
+			mustGoOn = false;
+			break;
+		}
+
+		// нашли фишку врага на пути
+		if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'black' : 'white')
+			&& (!cell.parent_direction || cell.parent_direction != 'NW') )  
+		{
+			for (nx = kx - 1, ny = ky - 1; mustGoOn ; nx--, ny--) {
+				if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
+					thisTurnMoves.push({
+						x: nx,
+						y: ny,
+						moves:[],
+						beat: {
+							x: kx,
+							y: ky
+						}							
+					});
+				} else {
+					mustGoOn = false;
+					break;
+				}					
+			}
+
+		}
+	}
+
+
+	// NE
+	mustGoOn = true;
+	for (kx = cell.x + 1, ky = cell.y - 1; mustGoOn ; kx++, ky--) {
+		if (!isValidCell(kx, ky)) {
+			// останавливаемся об стенку
+			mustGoOn = false;
+			break;				
+		}
+
+		if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'white' : 'black')) {
+			// останавливаемся об свою фишку
+			mustGoOn = false;
+			break;
+		}
+
+		// нашли фишку врага на пути
+		if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'black' : 'white')
+			&& (!cell.parent_direction || cell.parent_direction != 'NE') ) 
+		{
+			for (nx = kx + 1, ny = ky - 1; mustGoOn ; nx++, ny--) {
+				if (isValidCell(nx, ny) && ! isPieceHere(nx, ny)) {
+					thisTurnMoves.push({
+						x: nx,
+						y: ny,
+						moves:[],
+						beat: {
+							x: kx,
+							y: ky
+						}							
+					});
+				} else {
+					mustGoOn = false;
+					break;
+				}					
+			}
+
+		}
+	}
+
+
+	
 
 
     for (i in thisTurnMoves) {
