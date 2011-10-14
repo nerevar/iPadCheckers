@@ -31,6 +31,7 @@ var mustBeat = false; // флаг определяющий, должен ли б
 var countBeatenPieces = 0;
 var log = null; // объект для логирования сообщений
 var pieces; // сами шашки
+var directions = ['NE', 'SE', 'SW', 'NW']; // диагонали направления 
 
 var isSelected = -1;
 
@@ -683,51 +684,178 @@ function onMove(e) {
 }
 
 /**
+ * Проверяет, может ли бить шашка/дамка в указанном направлении
+ * @return TRUE | FALSE
+ */
+function canBeatAtDirection(cell, direction) {
+	if (cell.isKing) {
+		// проверка для дамки
+		
+		mustGoOn = true;
+		
+		switch (direction) {
+			case 'NE':
+				for (kx = cell.x + 1, ky = cell.y - 1; mustGoOn ; kx++, ky--) {
+					if (!isValidCell(kx, ky)) {
+						// об стенку
+						return false;
+					}
+
+					if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'white' : 'black')) {
+						// об свою фишку
+						return false;
+					}
+
+					// нашли фишку врага на пути
+					if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'black' : 'white')) 
+					{
+						// ищем свободное место куда встать
+						if (isValidCell(kx + 1, ky - 1) && ! isPieceHere(kx + 1, ky - 1)) {
+							return true;
+						} else {
+							return false;
+						}
+					}
+				}
+
+				break;
+			case 'SE':
+				for (kx = cell.x + 1, ky = cell.y + 1; mustGoOn ; kx++, ky++) {
+					if (!isValidCell(kx, ky)) {
+						// об стенку
+						return false;
+					}
+
+					if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'white' : 'black')) {
+						// об свою фишку
+						return false;
+					}
+
+					// нашли фишку врага на пути
+					if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'black' : 'white')) 
+					{
+						// ищем свободное место куда встать
+						if (isValidCell(kx + 1, ky + 1) && ! isPieceHere(kx + 1, ky + 1)) {
+							return true;
+						} else {
+							return false;
+						}
+					}
+				}
+				break;
+			case 'SW':
+				for (kx = cell.x - 1, ky = cell.y + 1; mustGoOn ; kx--, ky++) {
+					if (!isValidCell(kx, ky)) {
+						// об стенку
+						return false;
+					}
+
+					if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'white' : 'black')) {
+						// об свою фишку
+						return false;
+					}
+
+					// нашли фишку врага на пути
+					if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'black' : 'white')) 
+					{
+						// ищем свободное место куда встать
+						if (isValidCell(kx - 1, ky + 1) && ! isPieceHere(kx - 1, ky + 1)) {
+							return true;
+						} else {
+							return false;
+						}
+					}
+				}
+				break;
+			case 'NW':
+				for (kx = cell.x - 1, ky = cell.y - 1; mustGoOn ; kx--, ky--) {
+					if (!isValidCell(kx, ky)) {
+						// об стенку
+						return false;
+					}
+
+					if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'white' : 'black')) {
+						// об свою фишку
+						return false;
+					}
+
+					// нашли фишку врага на пути
+					if (isValidCell(kx, ky) && isPieceHere(kx, ky) == (cell.isWhite ? 'black' : 'white')) 
+					{
+						// ищем свободное место куда встать
+						if (isValidCell(kx - 1, ky - 1) && ! isPieceHere(kx - 1, ky - 1)) {
+							return true;
+						} else {
+							return false;
+						}
+					}
+				}
+				break;
+		}		
+	} else {
+		// проверка для обычный шашки
+		switch (direction) {
+			case 'NE':
+				if (isValidCell(cell.x + 2, cell.y - 2) && ! isPieceHere(cell.x + 2, cell.y - 2)
+					&& isPieceHere(cell.x + 1, cell.y - 1) == (cell.isWhite ? 'black' : 'white')) {
+					return true;
+				} else {
+					return false;
+				}
+				break;
+			case 'SE':
+				if (isValidCell(cell.x + 2, cell.y + 2) && ! isPieceHere(cell.x + 2, cell.y + 2)
+					&& isPieceHere(cell.x + 1, cell.y + 1) == (cell.isWhite ? 'black' : 'white')) {
+					return true;
+				} else {
+					return false;
+				}
+				break;
+			case 'SW':
+				if (isValidCell(cell.x - 2, cell.y + 2) && ! isPieceHere(cell.x - 2, cell.y + 2)
+					&& isPieceHere(cell.x - 1, cell.y + 1) == (cell.isWhite ? 'black' : 'white')) {
+					return true;
+				} else {
+					return false;
+				}
+				break;
+			case 'NW':
+				if (isValidCell(cell.x - 2, cell.y - 2) && ! isPieceHere(cell.x - 2, cell.y - 2)
+					&& isPieceHere(cell.x - 1, cell.y - 1) == (cell.isWhite ? 'black' : 'white')) {
+					return true;
+				} else {
+					return false;
+				}
+				break;
+		}
+	}
+}
+
+/**
  * Определяет должен ли бить игрок (находятся ли чужие фишки под боем)
  * @param whiteCells - TRUE|FALSE - белые или черные шашки
  */
 function isPieceMustBeat(whiteCells) {
     result = 0;
+	
+	whiteCells = whiteCells ? whiteCells : true;
 
     for (k in pieces) {
 
         if (pieces[k].isActive == false) {
             continue;
         }
-
-
         // если цвет текущей шашки отличается от нужного нам цвета то идём дальше
         if (pieces[k].isWhite != whiteCells) {
             continue;
         }
-
-        // NE
-        if (isValidCell(pieces[k].x + 2, pieces[k].y - 2) && ! isPieceHere(pieces[k].x + 2, pieces[k].y - 2)
-                && isPieceHere(pieces[k].x + 1, pieces[k].y - 1) == (whiteCells ? 'black' : 'white'))
-        {
-            result++;
-        }
-
-        // SE
-        if (isValidCell(pieces[k].x + 2, pieces[k].y + 2) && ! isPieceHere(pieces[k].x + 2, pieces[k].y + 2)
-                && isPieceHere(pieces[k].x + 1, pieces[k].y + 1) == (whiteCells ? 'black' : 'white'))
-        {
-            result++;
-        }
-
-        // SW
-        if (isValidCell(pieces[k].x - 2, pieces[k].y + 2) && ! isPieceHere(pieces[k].x - 2, pieces[k].y + 2)
-                && isPieceHere(pieces[k].x - 1, pieces[k].y + 1) == (whiteCells ? 'black' : 'white'))
-        {
-            result++;
-        }
-
-        // NW
-        if (isValidCell(pieces[k].x - 2, pieces[k].y - 2) && ! isPieceHere(pieces[k].x - 2, pieces[k].y - 2)
-                && isPieceHere(pieces[k].x - 1, pieces[k].y - 1) == (whiteCells ? 'black' : 'white'))
-        {
-            result++;
-        }
+		
+		// для каждого направления проверяем
+		for (dir in directions) {
+			if (canBeatAtDirection(pieces[k], directions[dir])) {
+				result++;
+			}
+		}
     }
 
     return result;
