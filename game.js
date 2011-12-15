@@ -37,6 +37,7 @@ var Cell = function(x, y, kind, isKing) {
 	this.isWhite = kind == 'black' ? false : true;
 	this.isBlack = kind == 'black' ? true : false;
     this.isActive = true;
+    this.moves = {};
 };
 
 /**
@@ -84,33 +85,33 @@ function onStart(e) {
 	if (isHitChecker(diff_coords.x, diff_coords.y)) {
 		
 		// получаем выбранную шашку
-		for (i in pieces) {
+		for (p in pieces) {
 
             // убираем выделение с других остальных шашек
-			if (pieces[i].isSelected) {
-				pieces[i].isSelected = false;
+			if (pieces[p].isSelected) {
+				pieces[p].isSelected = false;
 			}
             
-			if (pieces[i].x == diff_board_coords.x && pieces[i].y == diff_board_coords.y
-                && (whiteTurn == pieces[i].isWhite) && pieces[i].isActive)
+			if (pieces[p].x == diff_board_coords.x && pieces[p].y == diff_board_coords.y
+                && (whiteTurn == pieces[p].isWhite) && pieces[p].isActive)
             {
                 // если совпали координаты мыши и шашки и нужный ход
                 // шашка становится выделенной
                 
-				isSelected = i;
-				pieces[i].isSelected = true;
+				isSelected = p;
+				pieces[isSelected].isSelected = true;
 
                 // получаем доступные ходы для шашки
                 // TODO: заменить передачу координат на передачу объекта ШАШКА
-				if (pieces[i].isKing) {
-					log.add('Ход дамки ['+ pieces[i].x +';'+ pieces[i].y +']');
-					movesMap = getKingmovesMap({x : pieces[i].x, y : pieces[i].y, isWhite: pieces[i].isWhite});
+				if (pieces[isSelected].isKing) {
+					log.add('Ход дамки ['+ pieces[isSelected].x +';'+ pieces[isSelected].y +']');
+					pieces[isSelected].moves = getKingmovesMap({x : pieces[isSelected].x, y : pieces[isSelected].y, isWhite: pieces[isSelected].isWhite});
 				} else {
-					movesMap = getPiecemovesMap({x : pieces[i].x, y : pieces[i].y, isWhite: pieces[i].isWhite});
+					pieces[isSelected].moves = getPiecemovesMap({x : pieces[isSelected].x, y : pieces[isSelected].y, isWhite: pieces[isSelected].isWhite});
 				}
 
                 // рисуем доступные ходы
-                getRecMoves(movesMap);
+                getRecMoves(pieces[isSelected].moves);
 			}
 		}
 		
@@ -158,7 +159,7 @@ function onStop(e) {
                 // формируем маршруты pieceRoutes
                 pieceRoutes = {};
                 pieceRoutesPointer = 0;
-                canPieceMove(movesMap, new_x, new_y)
+                canPieceMove(pieces[isSelected].moves, new_x, new_y)
 
                 // ищем маршрут до нужной точки, при котором получается взять наибольшее количество шашек
                 currentRouteId = getMaxPieceRoute(pieceRoutes);
@@ -176,7 +177,7 @@ function onStop(e) {
                     }
 
                     // удаляет взятые шашки с доски
-                    removeBeatenPieces(movesMap, pieceRoutes[currentRouteId], 0, new_x, new_y);
+                    removeBeatenPieces(pieces[isSelected].moves, pieceRoutes[currentRouteId], 0, new_x, new_y);
 
                     // все ништяк, меняем координаты шашки
                     pieces[isSelected].x = new_x;
@@ -267,7 +268,7 @@ function onMove(e) {
                 // формируем маршруты pieceRoutes
                 pieceRoutes = {};
                 pieceRoutesPointer = 0;
-                canPieceMove(movesMap, new_x, new_y)
+                canPieceMove(pieces[isSelected].moves, new_x, new_y)
 
                 currentRouteId = getMaxPieceRoute(pieceRoutes);
                 if (currentRouteId >= 0) {
@@ -1112,7 +1113,7 @@ function getMaxPieceRoute(currentPieceRoutes) {
     for (p in currentPieceRoutes) {
         if (currentPieceRoutes[p].length) {
             beaten_sum = 0;
-            countBeatenPieces(movesMap, currentPieceRoutes[p], 0, new_x, new_y);
+            countBeatenPieces(pieces[isSelected].moves, currentPieceRoutes[p], 0, new_x, new_y);
             countBeatenPiecesArr[p] = beaten_sum;
         }
     }
