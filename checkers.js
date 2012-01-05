@@ -663,7 +663,7 @@ function getMaxPieceRoute(currentPieceRoutes) {
  */
 function modifyXdirection(x_val, direction, twice) {
     // на сколько будем изменять переменную
-    adder = twice ? 2 : 1;
+    adder = twice ? 2 : 1; 
 
     switch (direction) {
         case 'NE': x_val += adder; break;

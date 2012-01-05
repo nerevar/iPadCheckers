@@ -10,7 +10,7 @@ function onStart(e) {
 		// координаты мыши
 		coords = getCoords(e);
 	}
-	last_coords = coords;
+	last_coords = coords; 
 
     // высчитываем координаты относительные и относительно доски попадания мыши или пальца
 	diff_coords = {	x : coords.x - Math.floor(coords.x / CELL_SIZE) * CELL_SIZE,

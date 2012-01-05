@@ -56,7 +56,7 @@ function init() {
 		newGame();
 		refresh();
         log.add('Начата новая игра');
-        log.add('Ход белых');
+        log.add('Ход белых'); 
 	}
 }
 
