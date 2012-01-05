@@ -18,10 +18,10 @@ window.onload = function(){
 function loadImages(sources, callback){
 	var loadedImages = 0;
 	var numImages = 0;
-	for (var src in sources) {
+	for (src in sources) {
 		numImages++;
 	}
-	for (var src in sources) {
+	for (src in sources) {
 		images[src] = new Image();
 		images[src].onload = function(){
 			if (++loadedImages >= numImages) {
@@ -56,48 +56,53 @@ function init() {
 		newGame();
 		refresh();
         log.add('Начата новая игра');
-        log.add('Ход белых');
+        log.add('Ход белых'); 
 	}
 }
 
 /**
  * Начинает новую игру, присваивает координаты шашкам
  */
-function newGame() {
-	pieces = [
-		new Cell(0, 5, 'white'), new Cell(2, 5, 'white'),
-		new Cell(4, 5, 'white'), new Cell(6, 5, 'white'),
-		new Cell(1, 6, 'white'), new Cell(3, 6, 'white'),
-		new Cell(5, 6, 'white'), new Cell(7, 6, 'white'),
-		new Cell(0, 7, 'white'), new Cell(2, 7, 'white'),
-		new Cell(4, 7, 'white'), new Cell(6, 7, 'white'),
+function newGame(startPosition) {
+    startPosition = startPosition || 0;
 
-		new Cell(1, 0, 'black'), new Cell(3, 0, 'black'),
-		new Cell(5, 0, 'black'), new Cell(7, 0, 'black'),
-		new Cell(0, 1, 'black'), new Cell(2, 1, 'black'),
-		new Cell(4, 1, 'black'), new Cell(6, 1, 'black'),
-		new Cell(1, 2, 'black'), new Cell(3, 2, 'black'),
-		new Cell(5, 2, 'black'), new Cell(7, 2, 'black')];
-	
-	whiteTurn = true;
-	mustBeat = 0;
-}
+    if (startPosition == 0) {
+    	pieces = [
+            new Cell(0, 5, 'white'), new Cell(2, 5, 'white'),
+            new Cell(4, 5, 'white'), new Cell(6, 5, 'white'),
+            new Cell(1, 6, 'white'), new Cell(3, 6, 'white'),
+            new Cell(5, 6, 'white'), new Cell(7, 6, 'white'),
+            new Cell(0, 7, 'white'), new Cell(2, 7, 'white'),
+            new Cell(4, 7, 'white'), new Cell(6, 7, 'white'),
 
-function newMyGame() {
-	pieces = [
-		new Cell(2, 1, 'white', true), /*new Cell(2, 5, 'white'),
-		new Cell(4, 5, 'white'), new Cell(0, 5, 'white'),
-		/*new Cell(6, 1, 'white'), new Cell(6, 3, 'white'),
-		new Cell(6, 5, 'white'), new Cell(6, 7, 'white'),
-		new Cell(7, 0, 'white'), new Cell(7, 2, 'white'),
-		new Cell(7, 4, 'white'), new Cell(7, 6, 'white'),*/
+            new Cell(1, 0, 'black'), new Cell(3, 0, 'black'),
+            new Cell(5, 0, 'black'), new Cell(7, 0, 'black'),
+            new Cell(0, 1, 'black'), new Cell(2, 1, 'black'),
+            new Cell(4, 1, 'black'), new Cell(6, 1, 'black'),
+            new Cell(1, 2, 'black'), new Cell(3, 2, 'black'),
+            new Cell(5, 2, 'black'), new Cell(7, 2, 'black')
+        ];
+    } else if (startPosition == 1) {
+        pieces = [
+       		new Cell(2, 1, 'white', true),
+       		new Cell(3, 2, 'black'), new Cell(5, 4, 'black'),
+       		new Cell(2, 5, 'black'), new Cell(5, 6, 'black')
+        ];
+    } else if (startPosition == 2) {
+        pieces = [
+           new Cell(0, 7, 'white', true),
 
-		/*new Cell(0, 1, 'black'), new Cell(0, 3, 'black'),
-		new Cell(0, 5, 'black'), new Cell(0, 7, 'black'),
-		new Cell(1, 0, 'black'), new Cell(1, 2, 'black'),
-		new Cell(1, 4, 'black'), new Cell(1, 6, 'black'),*/
-		new Cell(3, 2, 'black'), new Cell(5, 4, 'black'),
-		new Cell(2, 5, 'black'), new Cell(5, 6, 'black')];
+           new Cell(3, 4, 'black'),
+           new Cell(4, 1, 'black'), new Cell(6, 3, 'black'),
+
+           new Cell(2, 1, 'black'), new Cell(6, 5, 'black'),
+           new Cell(3, 6, 'black')
+           /*new Cell(2, 1, 'black'),
+           new Cell(4, 1, 'black'), new Cell(6, 1, 'black'),
+           new Cell(1, 2, 'black'), new Cell(3, 2, 'black'),
+           new Cell(5, 2, 'black'), new Cell(7, 2, 'black')*/
+        ];
+    }
 	
 	whiteTurn = true;
 	mustBeat = 0;
@@ -316,7 +321,10 @@ function getRecMoves (currentMoves) {
                 getRecMoves(currentMoves[k].moves);
             } else {
                 // остановились на листе, раскрашиваем его
-                fillAvaibleMove(currentMoves[k].x, currentMoves[k].y)
+
+                if (! currentMoves[k].mustBeat) {
+                    fillAvaibleMove(currentMoves[k].x, currentMoves[k].y);
+                }
             }
         }
     }
