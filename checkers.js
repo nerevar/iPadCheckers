@@ -19,6 +19,7 @@ var whiteTurn = true; // флаг определяющий ход
 var mustBeat = false; // флаг определяющий, должен ли бить игрок. Определяется после каждого хода
 var countBeatenPiecesArr = {};
 var log = null; // объект для логирования сообщений
+var myHistory = null; // объект для работы с адресной строкой браузера
 var pieces; // сами шашки
 var directions = ['NE', 'SE', 'SW', 'NW']; // диагонали направления
 
@@ -92,10 +93,13 @@ function canPieceMove(currentMoves, x, y) {
                 if (currentMoves[k].x == x && currentMoves[k].y == y) {
                     // если координаты совпали то УРА
 
-                    pieceRoutesPointer++;
-                    pieceRoutes[pieceRoutesPointer] = pieceRoutes[pieceRoutesPointer - 1].slice(0);
+                    // проверка на то, что может ли дамка остановиться или обязана продолжать бить далее
+                    if (! currentMoves[k].mustBeat) {
+                        pieceRoutesPointer++;
+                        pieceRoutes[pieceRoutesPointer] = pieceRoutes[pieceRoutesPointer - 1].slice(0);
 
-                    isFound = true;
+                        isFound = true;
+                    }
                 }
 
             }
@@ -376,11 +380,11 @@ function getKingMovesMap(cell) {
                 if (isValidCell(kx, ky) && ! isPieceHere(kx, ky)) {
                     // добавляем возможный прыг
                     if (canBeatAtDirection(cell, directions[dir])) {
-                        // обычный прыг дамки на несколько клеток
-                        thisTurnMoves.push({x: kx, y: ky, moves:[]});
-                    } else {
                         // прыг дамки на несколько клеток нельзя осуществить, т.к. она обязана бить
                         thisTurnMoves.push({x: kx, y: ky, moves:[], mustBeat: true});
+                    } else {
+                        // обычный прыг дамки на несколько клеток
+                        thisTurnMoves.push({x: kx, y: ky, moves:[]});
                     }
                 } else {
                     break;
@@ -454,6 +458,7 @@ function getKingMovesMap(cell) {
                                 moves:getKingMovesMap({ // рекурсивный вызов этой же функции - ищем все дочерние ветки
                                     x: nx, y: ny, // координаты места, куда прыгаем
                                     isWhite: cell.isWhite, // цвет шашки
+                                    isKing: cell.isKing, // дамка ли?
                                     parent_x : cell.x, parent_y: cell.y, // координаты предыдущего места, откуда прыгаем
                                     parent_direction : getDirection({x: cell.x, y:cell.y}, {x: nx, y: ny}) // направление движения
                                 }),
@@ -693,4 +698,27 @@ function modifyYdirection(y_val, direction, twice) {
     }
 
     return y_val;
+}
+
+/**
+ * Преобразовывает Х координату доски в координату в шашечной нотации
+ * @param x
+ */
+function convertXtoLiteral(x) {
+    return String.fromCharCode(parseInt(x) + 97);
+}
+
+/**
+ * Преобразовывает Y координату доски в координату в шашечной нотации
+ * @param y
+ */
+function convertYtoLiteral(y) {
+    return (8-y).toString();
+}
+
+/**
+ * Загружает и проигрывает ходы игры, основываясь на ходах, заданных в url в якоре
+ */
+function loadGame() {
+
 }

@@ -1,14 +1,13 @@
-window.onload = function(){
+$(function(){
+    // инициализация игры
     init();
-	/*var sources = {
-		green: "./img/green.png",
-		blue: "./img/blue.png"
-	};
 
-	loadImages(sources, function(){
-		init();
-	});*/
-};
+    if (location.hash.indexOf('#!load') == 0) {
+        console.log('Да, сейчас будет загрузка игры!');
+    }
+})
+
+
 
 /**
  * Загружает изображения в контекст и вызывает функцию по их заверщению
@@ -52,9 +51,11 @@ function init() {
 		canvas.ontouchmove = onMove; 
 
         log = new Logger('log_info');
+        myHistory = new myHistoryClass();
         
-		newGame();
+		newGame(1);
 		refresh();
+
         log.add('Начата новая игра');
         log.add('Ход белых'); 
 	}
@@ -85,7 +86,7 @@ function newGame(startPosition) {
     } else if (startPosition == 1) {
         pieces = [
        		new Cell(2, 1, 'white', true),
-       		new Cell(3, 2, 'black'), new Cell(5, 4, 'black'),
+       		new Cell(4, 1, 'black'), new Cell(5, 4, 'black'),
        		new Cell(2, 5, 'black'), new Cell(5, 6, 'black')
         ];
     } else if (startPosition == 2) {
@@ -119,7 +120,7 @@ function refresh() {
 	} else {
 		$('#info .turn').text('BLACK');
 	}
-    
+
 	context.clearRect(0, 0, BOARD_SIZE, BOARD_SIZE);
 	drawBoard();
 	drawPieces();
@@ -361,4 +362,34 @@ function drawPathLine(p1, p2) {
 
     context.stroke();
     context.lineWidth = 1;
+}
+
+function myHistoryClass() {
+    this.turn = 0; // количество ходов (белые, затем черные)
+    this.jump = 0; // количество прыгов всего (обоими игроками)
+
+
+
+    // действия, которые можно выполнить, задав определённый якорь:
+    if (window.location.hash.indexOf('#!load|') == 0) {
+        // load - загружает игру
+        loadGame();
+    } else {
+        // иначе - очищаем якорь, каким бы он ни был
+        history.replaceState({}, '', '/');
+    }
+
+
+    this.addTurn = function(turn_info){
+        if (window.location.hash == '') {
+            history.replaceState({}, '', '#!turns|');
+        }
+
+        this.jump++;
+        if (this.jump % 2 == 1) {
+            this.turn++;
+        }
+        newhash = location.hash + (this.jump % 2 == 0 ? ',' : this.turn + '.') + turn_info + (this.jump % 2 == 0 ? '|' : '');
+        history.replaceState({}, '', newhash);
+    }
 }

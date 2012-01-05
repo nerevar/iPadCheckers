@@ -42,9 +42,9 @@ function onStart(e) {
                 // TODO: заменить передачу координат на передачу объекта ШАШКА
 				if (pieces[isSelected].isKing) {
 					log.add('Ход дамки ['+ pieces[isSelected].x +';'+ pieces[isSelected].y +']');
-					pieces[isSelected].moves = getKingMovesMap({x : pieces[isSelected].x, y : pieces[isSelected].y, isWhite: pieces[isSelected].isWhite});
+					pieces[isSelected].moves = getKingMovesMap(pieces[isSelected]);
 				} else {
-					pieces[isSelected].moves = getPieceMovesMap({x : pieces[isSelected].x, y : pieces[isSelected].y, isWhite: pieces[isSelected].isWhite});
+					pieces[isSelected].moves = getPieceMovesMap(pieces[isSelected]);
 				}
 
                 console.log(pieces[isSelected].moves);
@@ -122,6 +122,13 @@ function onStop(e) {
                         ' [' + pieces[isSelected].x + ';' + pieces[isSelected].y + '] -> [' + new_x + ';' + new_y + ']'
                     );
 
+                    // добавляем информацию о ходе в адресную строку
+                    myHistory.addTurn(
+                        convertXtoLiteral(pieces[isSelected].x) + convertYtoLiteral(pieces[isSelected].y) +
+                        '-' +
+                        convertXtoLiteral(new_x) + convertYtoLiteral(new_y)
+                    );
+
                     // все ништяк, меняем координаты шашки
                     pieces[isSelected].x = new_x;
                     pieces[isSelected].y = new_y;
@@ -136,11 +143,7 @@ function onStop(e) {
 						log.add('Победа ' + (victory == 'white' ? 'белых' : 'черных') + '!');
 
 						if (confirm('Начать заново?')) {
-							newGame();
-							refresh();
-							log.clear();
-							log.add('Начата новая игра');
-							log.add('Ход белых');
+							init();
 							return;
 						} else {
 							refresh();
