@@ -915,9 +915,6 @@ function loadGame(turns_info) {
 		return;
 	}
 
-	// убираем старый якорь с ЗАГРУЗКОЙ игры и будем заменять на реальный игровой
-	history.replaceState({}, '', '/');
-
 	// теперь выполняем каждый ход
 	for (turn in turns) {
 
