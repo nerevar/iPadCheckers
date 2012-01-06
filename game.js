@@ -39,9 +39,7 @@ function onStart(e) {
 				pieces[isSelected].isSelected = true;
 
                 // получаем доступные ходы для шашки
-                // TODO: заменить передачу координат на передачу объекта ШАШКА
 				if (pieces[isSelected].isKing) {
-					log.add('Ход дамки ['+ pieces[isSelected].x +';'+ pieces[isSelected].y +']');
 					pieces[isSelected].moves = getKingMovesMap(pieces[isSelected]);
 				} else {
 					pieces[isSelected].moves = getPieceMovesMap(pieces[isSelected]);
@@ -95,10 +93,13 @@ function onStop(e) {
 			// переместили шашку, координаты различаются
 			if (pieces[isSelected].x != new_x || pieces[isSelected].y != new_y) {
 
+                old_x = pieces[isSelected].x;
+                old_y = pieces[isSelected].y;
+
                 // формируем маршруты pieceRoutes
                 pieceRoutes = {};
                 pieceRoutesPointer = 0;
-                canPieceMove(pieces[isSelected].moves, new_x, new_y);
+                canPieceMoveInRoutes(pieces[isSelected].moves, new_x, new_y);
 
                 // ищем маршрут до нужной точки, при котором получается взять наибольшее количество шашек
                 currentRouteId = getMaxPieceRoute(pieceRoutes);
@@ -115,19 +116,18 @@ function onStop(e) {
                         }
                     }
 
-                    // удаляет взятые шашки с доски
-                    removeBeatenPieces(pieces[isSelected].moves, pieceRoutes[currentRouteId], 0, new_x, new_y);
+                    // проходится по маршруту и удаляет взятые шашки с доски
+                    removeBeatenPieces(pieces[isSelected].moves, pieceRoutes[currentRouteId], 0);
 
-                    log.add((whiteTurn ? 'Белые&nbsp;&nbsp;' : 'Черные') +
-                        ' [' + pieces[isSelected].x + ';' + pieces[isSelected].y + '] -> [' + new_x + ';' + new_y + ']'
-                    );
+                    // записываем маршрут движения шашки в шашечной нотации
+                    literalPath =
+                        convertXtoLiteral(old_x) + convertYtoLiteral(old_y) +
+                        getPiecePathLiteral(pieces[isSelected].moves, pieceRoutes[currentRouteId], 0);
+
+                    log.add((whiteTurn ? 'Белые&nbsp;&nbsp;&nbsp;' : 'Черные&nbsp;') + literalPath);
 
                     // добавляем информацию о ходе в адресную строку
-                    myHistory.addTurn(
-                        convertXtoLiteral(pieces[isSelected].x) + convertYtoLiteral(pieces[isSelected].y) +
-                        '-' +
-                        convertXtoLiteral(new_x) + convertYtoLiteral(new_y)
-                    );
+                    myHistory.addTurn(literalPath);
 
                     // все ништяк, меняем координаты шашки
                     pieces[isSelected].x = new_x;
@@ -150,6 +150,18 @@ function onStop(e) {
 							return;
 						}
 					}
+
+                    if (lockedPieces = checkLockedPieces()) {
+                        log.add('Победа ' + (lockedPieces == 'white' ? 'черных' : 'белых') + ' ('+ lockedPieces +' locked) !');
+
+                        if (confirm('Начать заново?')) {
+                            init();
+                            return;
+                        } else {
+                            refresh();
+                            return;
+                        }
+                    }
 
                     // меняем ход
                     whiteTurn = !whiteTurn;
@@ -209,7 +221,7 @@ function onMove(e) {
                 // формируем маршруты pieceRoutes
                 pieceRoutes = {};
                 pieceRoutesPointer = 0;
-                canPieceMove(pieces[isSelected].moves, new_x, new_y);
+                canPieceMoveInRoutes(pieces[isSelected].moves, new_x, new_y);
 
                 currentRouteId = getMaxPieceRoute(pieceRoutes);
                 if (currentRouteId >= 0) {

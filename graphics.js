@@ -1,10 +1,6 @@
 $(function(){
     // инициализация игры
     init();
-
-    if (location.hash.indexOf('#!load') == 0) {
-        console.log('Да, сейчас будет загрузка игры!');
-    }
 })
 
 
@@ -53,7 +49,7 @@ function init() {
         log = new Logger('log_info');
         myHistory = new myHistoryClass();
         
-		newGame(1);
+		newGame();
 		refresh();
 
         log.add('Начата новая игра');
@@ -98,15 +94,21 @@ function newGame(startPosition) {
 
            new Cell(2, 1, 'black'), new Cell(6, 5, 'black'),
            new Cell(3, 6, 'black')
-           /*new Cell(2, 1, 'black'),
-           new Cell(4, 1, 'black'), new Cell(6, 1, 'black'),
-           new Cell(1, 2, 'black'), new Cell(3, 2, 'black'),
-           new Cell(5, 2, 'black'), new Cell(7, 2, 'black')*/
+        ];
+    } else if (startPosition == 3) {
+        pieces = [
+            new Cell(6, 3, 'white', true),
+            new Cell(6, 5, 'white', true),
+
+            new Cell(7, 2, 'black')
         ];
     }
-	
+
+    // устанавливаем ход игроку, играющему белыми шашками
 	whiteTurn = true;
-	mustBeat = 0;
+
+    // определяем должен ли бить следующий игрок
+    mustBeat = isPieceMustBeat(whiteTurn);
 }
 
 /**
@@ -389,7 +391,7 @@ function myHistoryClass() {
         if (this.jump % 2 == 1) {
             this.turn++;
         }
-        newhash = location.hash + (this.jump % 2 == 0 ? ',' : this.turn + '.') + turn_info + (this.jump % 2 == 0 ? '|' : '');
+        newhash = window.location.hash + (this.jump % 2 == 0 ? ',' : this.turn + '.') + turn_info + (this.jump % 2 == 0 ? '|' : '');
         history.replaceState({}, '', newhash);
     }
 }

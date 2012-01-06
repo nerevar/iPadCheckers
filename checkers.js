@@ -70,7 +70,7 @@ var Logger = function(output_id) {
  * @param x - координата X куда нужно прийти [0;7]
  * @param y - координата Y куда нужно прийти [0;7]
  */
-function canPieceMove(currentMoves, x, y) {
+function canPieceMoveInRoutes(currentMoves, x, y) {
     if (currentMoves && currentMoves.length > 0) {
         for (k in currentMoves) {
 
@@ -85,7 +85,7 @@ function canPieceMove(currentMoves, x, y) {
 
             if (currentMoves[k].moves.length > 0) {
                 // можем двигаться дальше по ветке
-                if (canPieceMove(currentMoves[k].moves, x, y)) {
+                if (canPieceMoveInRoutes(currentMoves[k].moves, x, y)) {
 					return true;
 				}
             } else {
@@ -111,13 +111,12 @@ function canPieceMove(currentMoves, x, y) {
 }
 
 /**
- * Убирает побитые фишки
+ * Проходится по массиву currentMoves в соответствии с указанным маршрутом currentPath и убирает побитые фишки
  * @param currentMoves - рекурсивный массив из ходов
- * @param currentPath - текущий ПРОСЧИТАННЫЙ путь шашки
- * @param x - новая X координата
- * @param y - новая Y координата
+ * @param currentPath - текущий ПРОСЧИТАННЫЙ маршрут шашки
+ * @param currentPathPosition - текущий уровень глубины вложенности в currentPath
  */
-function removeBeatenPieces(currentMoves, currentPath, currentPathPosition, x, y) {
+function removeBeatenPieces(currentMoves, currentPath, currentPathPosition) {
     if (currentMoves && currentMoves.length > 0) {
         for (k in currentMoves) {
             if (currentMoves[k].x == currentPath[currentPathPosition].x
@@ -135,7 +134,7 @@ function removeBeatenPieces(currentMoves, currentPath, currentPathPosition, x, y
                 }
                 if (currentMoves[k].moves.length > 0) {
                     // можем ли мы идти дальше?
-                    return removeBeatenPieces(currentMoves[k].moves, currentPath, ++currentPathPosition, x, y);
+                    return removeBeatenPieces(currentMoves[k].moves, currentPath, ++currentPathPosition);
                 }
             }
         }
@@ -150,7 +149,7 @@ function removeBeatenPieces(currentMoves, currentPath, currentPathPosition, x, y
  * @param y - новая Y координата
  */
 var beaten_sum = 0;
-function countBeatenPieces(currentMoves, currentPath, currentPathPosition, x, y) {
+function getCountBeatenPieces(currentMoves, currentPath, currentPathPosition, x, y) {
     if (currentMoves && currentMoves.length > 0) {
         for (k in currentMoves) {
             if (currentMoves[k].x == currentPath[currentPathPosition].x
@@ -168,7 +167,7 @@ function countBeatenPieces(currentMoves, currentPath, currentPathPosition, x, y)
                 }
                 if (currentMoves[k].moves.length > 0) {
                     // можем ли мы идти дальше?
-                    countBeatenPieces(currentMoves[k].moves, currentPath, ++currentPathPosition, x, y);
+                    getCountBeatenPieces(currentMoves[k].moves, currentPath, ++currentPathPosition, x, y);
                 }
             }
         }
@@ -301,12 +300,35 @@ function getPieceMovesMap(cell) {
                 ! isPieceHere(modifyXdirection(cell.x, dirs[dir]), modifyYdirection(cell.y, dirs[dir]))
             )
             {
+                // все условия выполняются, добавляем возможный прыг
+
+                // проверяем все направления - может ли шашка бить в каком-нибудь из них
+                mustBeatHere = false;
+                for (hereDir in dirs) {
+                    if (canBeatAtDirection(cell, dirs[hereDir])) {
+                        mustBeatHere = true;
+                    }
+                }
+
+                if (mustBeatHere) {
+                    // обычный прыг шашки нельзя осуществить, т.к. она обязана бить в каком-то из направлений
+                    thisTurnMoves.push({
+                        x: modifyXdirection(cell.x, dirs[dir]),
+                        y: modifyYdirection(cell.y, dirs[dir]),
+                        moves:[],
+                        mustBeat: true
+                    });
+                } else {
+                    // обычный прыг шашки на одну клетку рядом
+                    thisTurnMoves.push({
+                        x: modifyXdirection(cell.x, dirs[dir]),
+                        y: modifyYdirection(cell.y, dirs[dir]),
+                        moves:[]
+                    });
+                }
+
                 // добавляем прыг
-                thisTurnMoves.push({
-                    x: modifyXdirection(cell.x, dirs[dir]),
-                    y: modifyYdirection(cell.y, dirs[dir]),
-                    moves:[]
-                });
+
             }
         }
     }
@@ -378,8 +400,18 @@ function getKingMovesMap(cell) {
             {
                 // если клетка "не стенка" и там никого нет
                 if (isValidCell(kx, ky) && ! isPieceHere(kx, ky)) {
+                    // все условия выполняются, добавляем возможный прыг
+
+                    // проверяем все направления - может ли дамка бить в каком-нибудь из них
+                    mustBeatHere = false;
+                    for (hereDir in directions) {
+                        if (canBeatAtDirection(cell, directions[hereDir])) {
+                            mustBeatHere = true;
+                        }
+                    }
+
                     // добавляем возможный прыг
-                    if (canBeatAtDirection(cell, directions[dir])) {
+                    if (mustBeatHere) {
                         // прыг дамки на несколько клеток нельзя осуществить, т.к. она обязана бить
                         thisTurnMoves.push({x: kx, y: ky, moves:[], mustBeat: true});
                     } else {
@@ -600,22 +632,62 @@ function isValidCell(x, y) {
  * Проверяет количество шашек и определяет победу
  */
 function checkVictory() {
-	var count_black = count_white = 0;
+	var countBlack = countWhite = 0;
 
     // в цикле подсчёт оставшихся шашек
 	for (i in pieces) {
 		if (pieces[i].isActive) {
 			if (pieces[i].isWhite) {
-				count_white++;
+				countWhite++;
 			} else {
-				count_black++;
+				countBlack++;
 			}
 		}
 	}
 
-	if (count_black == 0) return 'white';
-	if (count_white == 0) return 'black';
+	if (countBlack == 0) return 'white';
+	if (countWhite == 0) return 'black';
 	return false;
+}
+
+/**
+ * Проверка на то, что заперты все чьи-то шашки и дамки
+ */
+function checkLockedPieces() {
+    var countLockedBlack = countLockedWhite = 0;
+
+   // в цикле подсчёт ходов шашек
+   	for (var i in pieces) {
+   		if (pieces[i].isActive) {
+            if (!canPieceMove(pieces[i]) && !canPieceBeat(pieces[i])) {
+                if (pieces[i].isWhite) {
+                    countLockedWhite++
+                } else {
+                    countLockedBlack++;
+                }
+            }
+   		}
+   	}
+
+    if (countLockedWhite == getCountPieces(true)) {return 'white';}
+    if (countLockedBlack == getCountPieces(false)){return 'black';}
+
+   	return false;
+}
+
+/**
+ * Подсчёт количества оставшихся шашек определённого цвета
+ * @param isWhite
+ */
+function getCountPieces(isWhite) {
+    var count = 0;
+
+    for (t in pieces) {
+   		if (pieces[t].isActive && ((isWhite && pieces[t].isWhite) || (!isWhite && !pieces[t].isWhite)) ) {
+            count++;
+   		}
+   	}
+    return count;
 }
 
 /**
@@ -643,7 +715,7 @@ function getMaxPieceRoute(currentPieceRoutes) {
     for (p in currentPieceRoutes) {
         if (currentPieceRoutes[p].length) {
             beaten_sum = 0;
-            countBeatenPieces(pieces[isSelected].moves, currentPieceRoutes[p], 0, new_x, new_y);
+            getCountBeatenPieces(pieces[isSelected].moves, currentPieceRoutes[p], 0, new_x, new_y);
             countBeatenPiecesArr[p] = beaten_sum;
         }
     }
@@ -720,5 +792,113 @@ function convertYtoLiteral(y) {
  * Загружает и проигрывает ходы игры, основываясь на ходах, заданных в url в якоре
  */
 function loadGame() {
+    // :TODO: сделать загрузку игры
+    console.log('Загрузка игры');
+}
+
+/**
+ * Проходится по массиву currentMoves в соответствии с указанным маршрутом currentPath
+ * и формирует путь шашки в шашечной нотации для записи ходов
+ * @param currentMoves - рекурсивный массив из ходов
+ * @param currentPath - текущий ПРОСЧИТАННЫЙ маршрут шашки
+ * @param currentPathPosition - текущий уровень глубины вложенности в currentPath
+ */
+function getPiecePathLiteral(currentMoves, currentPath, currentPathPosition) {
+    // формируем строку с ходами в шашечной нотации
+    var thisTurnPath = '';
+
+    if (currentMoves && currentMoves.length > 0) {
+        // проходимся по всему дереву всех маршрутов
+        for (k in currentMoves) {
+
+            // проверка на то, что текущая координата из возможных координат
+            // лежит на маршруте движения фишки
+            if (currentMoves[k].x == currentPath[currentPathPosition].x
+             && currentMoves[k].y == currentPath[currentPathPosition].y)
+            {
+
+                // записываем текущий прыг
+                thisTurnPath +=
+                    (currentMoves[k].beat ? ':' : '-') +
+                    convertXtoLiteral(currentMoves[k].x) + convertYtoLiteral(currentMoves[k].y);
+
+                // можем ли мы идти дальше?
+                if (currentMoves[k].moves.length > 0) {
+                    // рекурсивно вызываем себя и идём дальше по дереву
+                    thisTurnPath += getPiecePathLiteral(currentMoves[k].moves, currentPath, ++currentPathPosition);
+                }
+            }
+        }
+    }
+    return thisTurnPath;
+}
+
+
+/**
+ * Проверка на то, что может ли вообще шашка/дамка ходить в лююбое из направлений?
+ * @param cell
+ */
+function canPieceBeat(cell) {
+    // для каждого направления проверяем может ли бить(!)
+    // учитывается как для шашки, так и для дамки
+    for (dir in directions) {
+        if (canBeatAtDirection(cell, directions[dir])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Проверяет может ли шашка/дамка вообще ходить куда-нибудь или заперта
+ * @param cell
+ */
+function canPieceMove(cell) {
+    if (cell.isKing) {
+        // для дамки
+
+        // для каждого направления проверяем может ли ходить(!)
+
+        // в цикле для каждого направления ищем возможные ходы
+        for (dir in directions) {
+
+            // в цикле идём вдоль диагонали
+            for (
+                kx = modifyXdirection(cell.x, directions[dir]), ky = modifyYdirection(cell.y, directions[dir]);
+                true;
+                kx = modifyXdirection(kx, directions[dir]), ky = modifyYdirection(ky, directions[dir]) // меняем kx и ky в зависимости от направления
+            )
+            {
+                // если клетка "не стенка" и там никого нет
+                if (isValidCell(kx, ky) && ! isPieceHere(kx, ky)) {
+                    return true;
+                } else {
+                    break;
+                }
+            }
+        }
+
+    } else {
+        // для шашки
+
+        if (cell.isWhite) {
+            // направления, по которым могут ходить(!) белые(!) шашки
+            dirs = ['NE', 'NW'];
+        } else {
+            // направления, по которым могут ходить(!) черные(!) шашки
+            dirs = ['SE', 'SW'];
+        }
+
+        // в цикле для каждого направления определяем возможность походить на соседнюю клетку
+        for (dir in dirs) {
+            if (isValidCell(modifyXdirection(cell.x, dirs[dir]), modifyYdirection(cell.y, dirs[dir])) &&
+                ! isPieceHere(modifyXdirection(cell.x, dirs[dir]), modifyYdirection(cell.y, dirs[dir]))
+            )
+            {
+                return true;
+            }
+        }
+    }
+    return false;
 
 }
