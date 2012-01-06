@@ -62,6 +62,90 @@ var Logger = function(output_id) {
 };
 
 
+/**
+ * Осуществляет ход.
+ * При этом используется внешний массив шашек pieces а также переменная isSelected, которая определяет выделенную шашку
+ * @param old_x - старая Х координата
+ * @param old_y - старая Y координата
+ * @param new_x - новая X координата
+ * @param new_y - новая Y координата
+ */
+function doTurn(old_x, old_y, new_x, new_y) {
+    // формируем маршруты pieceRoutes
+    pieceRoutes = {};
+    pieceRoutesPointer = 0;
+    canPieceMoveInRoutes(pieces[isSelected].moves, new_x, new_y);
+
+    // ищем маршрут до нужной точки, при котором получается взять наибольшее количество шашек
+    currentRouteId = getMaxPieceRoute(pieceRoutes);
+
+    if (currentRouteId >= 0) {
+        // если таки мы можем перейти в новое место
+
+        // обязаны ли мы бить?
+        if (mustBeat > 0) {
+            if (countBeatenPiecesArr[currentRouteId] == 0) {
+                log.add("Недопустимый ход, Вы обязаны бить!");
+                refresh();
+                return false;
+            }
+        }
+
+        // проходится по маршруту и удаляет взятые шашки с доски
+        removeBeatenPieces(pieces[isSelected].moves, pieceRoutes[currentRouteId], 0);
+
+        // записываем маршрут движения шашки в шашечной нотации
+        literalPath =
+            convertXtoLiteral(old_x) + convertYtoLiteral(old_y) +
+            getPiecePathLiteral(pieces[isSelected].moves, pieceRoutes[currentRouteId], 0);
+
+        log.add((whiteTurn ? 'Белые&nbsp;&nbsp;&nbsp;' : 'Черные&nbsp;') + literalPath);
+
+        // добавляем информацию о ходе в адресную строку
+        myHistory.addTurn(literalPath);
+
+        // все ништяк, меняем координаты шашки
+        pieces[isSelected].x = new_x;
+        pieces[isSelected].y = new_y;
+
+        // снимаем выделение, проверяем на дамку
+        pieces[isSelected].isSelected = false;
+        pieces[isSelected].isKing = isKing(pieces[isSelected]);
+        isSelected = -1;
+
+        // Победа какого-либо игрока
+        if (victory = checkVictory()) {
+                log.add('Победа ' + (victory == 'white' ? 'белых' : 'черных') + '!');
+
+            if (confirm('Начать заново?')) {
+                init();
+                return;
+            } else {
+                refresh();
+                return;
+            }
+        }
+
+        if (lockedPieces = checkLockedPieces()) {
+            log.add('Победа ' + (lockedPieces == 'white' ? 'черных' : 'белых') + ' ('+ lockedPieces +' locked) !');
+
+            if (confirm('Начать заново?')) {
+                init();
+                return;
+            } else {
+                refresh();
+                return;
+            }
+        }
+
+        // меняем ход
+        whiteTurn = !whiteTurn;
+
+        // определяем должен ли бить следующий игрок
+        mustBeat = isPieceMustBeat(whiteTurn);
+    }
+}
+
 
 /**
  * Проверяет может ли фишка переместиться по указанному дереву пути в нужные координаты
@@ -507,13 +591,13 @@ function getKingMovesMap(cell) {
                             // для клеток, расположенных на этой диагонали устанавливаем флаг "Обязан бить"
                             // т.к. если есть возможность бить - то нужно бить обязательно
                             if (thisTurnCanBeatMore) {
-                                for (t in thisTurnMoves) {
-                                    if (! thisTurnMoves[t].moves.length && // далее двигаться не может
-                                        thisTurnMoves[t].beat && thisTurnMoves[t].beat.x == kx && thisTurnMoves[t].beat.y == ky
+                                for (var turn in thisTurnMoves) {
+                                    if (! thisTurnMoves[turn].moves.length && // далее двигаться не может
+                                        thisTurnMoves[turn].beat && thisTurnMoves[turn].beat.x == kx && thisTurnMoves[turn].beat.y == ky
                                     )
                                     {
                                         // но останавливаться здесь нельзя, т.к. может бить другие шашки
-                                        thisTurnMoves[t].mustBeat = true;
+                                        thisTurnMoves[turn].mustBeat = true;
                                     }
                                 }
                             }
@@ -682,8 +766,8 @@ function checkLockedPieces() {
 function getCountPieces(isWhite) {
     var count = 0;
 
-    for (t in pieces) {
-   		if (pieces[t].isActive && ((isWhite && pieces[t].isWhite) || (!isWhite && !pieces[t].isWhite)) ) {
+    for (var turn in pieces) {
+   		if (pieces[turn].isActive && ((isWhite && pieces[turn].isWhite) || (!isWhite && !pieces[turn].isWhite)) ) {
             count++;
    		}
    	}
@@ -789,11 +873,105 @@ function convertYtoLiteral(y) {
 }
 
 /**
+ * Преобразует координату [a-h] шашечной нотации в координаты на доске [0-7]
+ * @param x
+ */
+function convertLiteralToX(x) {
+    return x.charCodeAt(0) - 97;
+}
+
+/**
+ * Преобразует координату [1-8] шашечной нотации в координаты на доске [0-7]
+ * @param y
+ */
+function convertLiteralToY(x) {
+    return (8 - parseInt(x));
+}
+
+/**
  * Загружает и проигрывает ходы игры, основываясь на ходах, заданных в url в якоре
  */
-function loadGame() {
-    // :TODO: сделать загрузку игры
-    console.log('Загрузка игры');
+function loadGame(turns_info) {
+    // массив с ходами ходы
+    var turns = [];
+    var turn;
+
+    try {
+        turns_arr = turns_info.split('|');
+
+        // каждый элемент строки разбиваем на составляющие и далее формируем массив turns
+        // :TODO: потенциально небезопасная штука. Сюда нужно много проверок на корректность номеров и самих ходов.
+        for (turn in turns_arr) {
+            if (!turns_arr[turn]) {continue}
+
+            turns_num_info = turns_arr[turn].split('.');
+            turn_number = turns_num_info[0];
+
+            turns.push(turns_num_info[1].split(','));
+
+        }
+    } catch(e) {
+        alert('Ошибка при загрузке ходов!');
+        return;
+    }
+
+    // убираем старый якорь с ЗАГРУЗКОЙ игры и будем заменять на реальный игровой
+    history.replaceState({}, '', '/');
+
+    // теперь выполняем каждый ход
+    console.log(turns);
+    for (turn in turns) {
+
+        // поочереди сначала ход белых, а затем черных
+        for (round in [0,1]) {
+
+            // проверка на то, что такой ход вообще задан
+            if (!turns[turn][round]) {
+                continue;
+            }
+
+            // ищем разделитель между клетками
+            if (turns[turn][round].indexOf('-') > 0) {
+                // обычный ход без взятия
+                splitter = '-';
+            } else {
+                // ход со взятием
+                splitter = ':';
+            }
+
+            splittedTurns = turns[turn][round].split(splitter);
+
+            // преобразование координат
+            // начальные координаты
+            old_x = convertLiteralToX(splittedTurns[0].charAt(0));
+            old_y = convertLiteralToY(splittedTurns[0].charAt(1));
+
+            // конечные координаты
+            new_x = convertLiteralToX(splittedTurns[splittedTurns.length - 1].charAt(0));
+            new_y = convertLiteralToY(splittedTurns[splittedTurns.length - 1].charAt(1));
+
+            console.log('Получаем шашку в ['+old_x+';'+old_y+'] -> ' + getPieceIndexAt(old_x, old_y));
+
+            // отмечаем шашку, которой будем ходить
+            isSelected = getPieceIndexAt(old_x, old_y);
+
+            if (! isSelected) {continue}
+
+            pieces[isSelected].isSelected = true;
+
+            // получаем доступные ходы для шашки
+            if (pieces[isSelected].isKing) {
+                pieces[isSelected].moves = getKingMovesMap(pieces[isSelected]);
+            } else {
+                pieces[isSelected].moves = getPieceMovesMap(pieces[isSelected]);
+            }
+
+            // выполняем ход
+            doTurn(old_x, old_y, new_x, new_y);
+        }
+
+    }
+    refresh();
 }
 
 /**
@@ -848,6 +1026,7 @@ function canPieceBeat(cell) {
     }
     return false;
 }
+
 
 /**
  * Проверяет может ли шашка/дамка вообще ходить куда-нибудь или заперта

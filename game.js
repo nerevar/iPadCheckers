@@ -90,85 +90,13 @@ function onStop(e) {
 			if (new_y > 7) new_y = 7;
 			if (new_y < 0) new_y = 0;
 
+            old_x = pieces[isSelected].x;
+            old_y = pieces[isSelected].y;
+
 			// переместили шашку, координаты различаются
-			if (pieces[isSelected].x != new_x || pieces[isSelected].y != new_y) {
-
-                old_x = pieces[isSelected].x;
-                old_y = pieces[isSelected].y;
-
-                // формируем маршруты pieceRoutes
-                pieceRoutes = {};
-                pieceRoutesPointer = 0;
-                canPieceMoveInRoutes(pieces[isSelected].moves, new_x, new_y);
-
-                // ищем маршрут до нужной точки, при котором получается взять наибольшее количество шашек
-                currentRouteId = getMaxPieceRoute(pieceRoutes);
-
-                if (currentRouteId >= 0) {
-                    // если таки мы можем перейти в новое место
-
-                    // обязаны ли мы бить?
-                    if (mustBeat > 0) {
-                        if (countBeatenPiecesArr[currentRouteId] == 0) {
-                            log.add("Недопустимый ход, Вы обязаны бить!");
-                            refresh();
-                            return false;
-                        }
-                    }
-
-                    // проходится по маршруту и удаляет взятые шашки с доски
-                    removeBeatenPieces(pieces[isSelected].moves, pieceRoutes[currentRouteId], 0);
-
-                    // записываем маршрут движения шашки в шашечной нотации
-                    literalPath =
-                        convertXtoLiteral(old_x) + convertYtoLiteral(old_y) +
-                        getPiecePathLiteral(pieces[isSelected].moves, pieceRoutes[currentRouteId], 0);
-
-                    log.add((whiteTurn ? 'Белые&nbsp;&nbsp;&nbsp;' : 'Черные&nbsp;') + literalPath);
-
-                    // добавляем информацию о ходе в адресную строку
-                    myHistory.addTurn(literalPath);
-
-                    // все ништяк, меняем координаты шашки
-                    pieces[isSelected].x = new_x;
-                    pieces[isSelected].y = new_y;
-
-                    // снимаем выделение, проверяем на дамку
-                    pieces[isSelected].isSelected = false;
-                    pieces[isSelected].isKing = isKing(pieces[isSelected]);
-                    isSelected = -1;
-
-					// Победа какого-либо игрока
-					if (victory = checkVictory()) {
-						log.add('Победа ' + (victory == 'white' ? 'белых' : 'черных') + '!');
-
-						if (confirm('Начать заново?')) {
-							init();
-							return;
-						} else {
-							refresh();
-							return;
-						}
-					}
-
-                    if (lockedPieces = checkLockedPieces()) {
-                        log.add('Победа ' + (lockedPieces == 'white' ? 'черных' : 'белых') + ' ('+ lockedPieces +' locked) !');
-
-                        if (confirm('Начать заново?')) {
-                            init();
-                            return;
-                        } else {
-                            refresh();
-                            return;
-                        }
-                    }
-
-                    // меняем ход
-                    whiteTurn = !whiteTurn;
-
-                    // определяем должен ли бить следующий игрок
-                    mustBeat = isPieceMustBeat(whiteTurn);
-                }
+			if (new_x != old_x || new_y != old_y) {
+                // осуществляет ход шашки
+                doTurn(old_x, old_y, new_x, new_y)
 			}
 
 			refresh();

@@ -10,6 +10,7 @@
 		
 		<script type="text/javascript" src="jquery.min.js"></script>
         <script type="text/javascript" src="jquery.ba-hashchange.min.js"></script>
+		<script type="text/javascript" src="jquery.cookie.js"></script>
 
         <script type="text/javascript" src="checkers.js"></script>
         <script type="text/javascript" src="game.js"></script>
@@ -50,6 +51,8 @@
 	<body>
 		<div id="wrap">		
 			<div id="info">
+				<a href="javascript:confirmNewGame();">Restart</a> <br/>
+
 				<div class="turn"></div>
 				<div class="x"></div>
 				<div class="y"></div>
@@ -58,13 +61,13 @@
 				<div class="text"></div>
                 <div class="event"></div>
 			</div>
-			
+
 			<div id="canv_wrap">
 				<canvas id="canv" width="640" height="640"></canvas>
 			</div>
 
+
 			<div id="log_info">
-                
 			</div>
 		
 		</div>

@@ -1,6 +1,33 @@
 $(function(){
+
+    // проверка на несуществующую куку
+    if (! $.cookie('turns')) {
+        $.cookie('turns', '', {expires: 1});
+    }
+
+    // делаем загрузку игры из куков
+    loadFromCookie = false;
+    if ($.cookie('turns').split('|').length > 1) {
+        loadFromCookie = $.cookie('turns');
+    }
+
     // инициализация игры
     init();
+
+    // загружаем игру через url
+    if (window.location.hash.indexOf('#!load|') == 0) {
+        // получаем ходы из url
+        turns_info = window.location.hash.substr(7);
+
+        // загружаем игру
+        loadGame(turns_info);
+    } else {
+        // если в куках хранится история ходов - то загружаем её
+        if (loadFromCookie) {
+            loadGame(loadFromCookie);
+        }
+    }
+
 })
 
 
@@ -48,12 +75,11 @@ function init() {
 
         log = new Logger('log_info');
         myHistory = new myHistoryClass();
-        
+
 		newGame();
 		refresh();
 
         log.add('Начата новая игра');
-        log.add('Ход белых'); 
 	}
 }
 
@@ -370,17 +396,15 @@ function myHistoryClass() {
     this.turn = 0; // количество ходов (белые, затем черные)
     this.jump = 0; // количество прыгов всего (обоими игроками)
 
-
-
-    // действия, которые можно выполнить, задав определённый якорь:
-    if (window.location.hash.indexOf('#!load|') == 0) {
-        // load - загружает игру
-        loadGame();
-    } else {
-        // иначе - очищаем якорь, каким бы он ни был
-        history.replaceState({}, '', '/');
+    if (window.location.hash != '') {
+        // разрешенные действия, которые можно выполнить, задав определённый якорь:
+        if (window.location.hash.indexOf('#!load|') == 0) {
+            // load - загрузка игры
+        } else {
+            // иначе - очищаем якорь, каким бы он ни был
+            history.replaceState({}, '', '/');
+        }
     }
-
 
     this.addTurn = function(turn_info){
         if (window.location.hash == '') {
@@ -391,7 +415,23 @@ function myHistoryClass() {
         if (this.jump % 2 == 1) {
             this.turn++;
         }
-        newhash = window.location.hash + (this.jump % 2 == 0 ? ',' : this.turn + '.') + turn_info + (this.jump % 2 == 0 ? '|' : '');
-        history.replaceState({}, '', newhash);
+
+        newJump = (this.jump % 2 == 0 ? ',' : this.turn + '.') + turn_info + (this.jump % 2 == 0 ? '|' : '');
+
+        newHash = window.location.hash + newJump;
+        history.replaceState({}, '', newHash);
+
+        $.cookie('turns', $.cookie('turns') + newJump, {expires: 1});
+    }
+}
+
+/**
+ * Запрос пользователю на начало новой игры
+ */
+function confirmNewGame() {
+    if (confirm('Начать заново?')) {
+        // сбросить историю в куках и начать новую игру
+        $.cookie('turns', '', {expires: 1});
+        init();
     }
 }
