@@ -19,6 +19,10 @@ $(function(){
 		// получаем ходы из url
 		turns_info = window.location.hash.substr(7);
 
+		// убираем старый якорь с ЗАГРУЗКОЙ игры и будем заменять на реальный игровой
+		window.location = window.location.href.replace( /#.*/, "");
+		//history.replaceState({}, '', '/');
+
 		// загружаем игру
 		loadGame(turns_info);
 	} else {
@@ -402,13 +406,14 @@ function myHistoryClass() {
 			// load - загрузка игры
 		} else {
 			// иначе - очищаем якорь, каким бы он ни был
-			history.replaceState({}, '', '/');
+			window.location = window.location.href.replace( /#.*/, "");
+			//history.replaceState({}, '', '/');
 		}
 	}
 
 	this.addTurn = function(turn_info){
 		if (window.location.hash == '') {
-			history.replaceState({}, '', '#!turns|');
+			history.replaceState({}, '', location.pathname + '#!turns|');
 		}
 
 		this.jump++;
